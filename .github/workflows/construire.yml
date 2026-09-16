@@ -89,10 +89,15 @@ jobs:
         shell: pwsh
         run: |
           $exe = "dist\ULIX NCTS\app\ulix-ncts.exe"
-          # code 2 = « aucun PDF à traiter » : attendu sur un projet vide
+          # code 2 = « aucun PDF à traiter » : attendu sur un projet vide.
+          # GitHub fait échouer l'étape sur le dernier code natif non nul : on
+          # conclut donc par un exit explicite.
           & $exe --projet "$env:RUNNER_TEMP\projet" --simulation --sans-couleur
-          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) { throw "l'exécutable a renvoyé $LASTEXITCODE" }
-          if (-not (Test-Path "$env:RUNNER_TEMP\projet\.env")) { throw ".env non créé" }
+          $code = $LASTEXITCODE
+          if ($code -ne 0 -and $code -ne 2) { Write-Error "l'exécutable a renvoyé $code"; exit 1 }
+          if (-not (Test-Path "$env:RUNNER_TEMP\projet\.env")) { Write-Error ".env non créé"; exit 1 }
+          Write-Host "contrôle OK (code $code, .env présent)"
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: windows

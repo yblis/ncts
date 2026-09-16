@@ -92,6 +92,24 @@ class PreparationProjet(unittest.TestCase):
             self.assertTrue((projet / ".env").is_file())
 
 
+class RechercheVenv(unittest.TestCase):
+    def test_dossier_voisin_illisible_ignore(self):
+        """Runner GitHub : /home/packer n'est pas lisible, is_file() lève PermissionError."""
+        vrai_is_file = Path.is_file
+
+        def is_file_capricieux(self):
+            if "interdit" in self.parts:
+                raise PermissionError(13, "Permission denied", str(self))
+            return vrai_is_file(self)
+
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            (base / "interdit").mkdir()
+            (base / "projet" / "app").mkdir(parents=True)
+            with patch.object(Path, "is_file", is_file_capricieux):
+                self.assertIsNone(plateforme.chercher_python(base / "projet" / "app", profondeur=1))
+
+
 class ExecutableFige(unittest.TestCase):
     def test_gabarit_embarque_prioritaire(self):
         with tempfile.TemporaryDirectory() as td:

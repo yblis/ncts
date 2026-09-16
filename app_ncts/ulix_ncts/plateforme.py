@@ -183,14 +183,25 @@ def chercher_python(base: Path, profondeur: int = 1) -> Path | None:
     """
     relatifs = (Path(".venv") / "bin" / "python3",
                 Path(".venv") / "Scripts" / "python.exe")
+
+    def _fichier(chemin: Path) -> bool:
+        # un dossier voisin non lisible (autre compte, /home/xxx sur un serveur)
+        # ne doit pas faire échouer la recherche : il n'est simplement pas le venv
+        try:
+            return chemin.is_file()
+        except OSError:
+            return False
+
     for depart in (base, *base.parents):
         for rel in relatifs:
             candidat = depart / rel
-            if candidat.is_file():
+            if _fichier(candidat):
                 return candidat
-        if profondeur <= 0 or not depart.is_dir():
+        if profondeur <= 0:
             continue
         try:
+            if not depart.is_dir():
+                continue
             voisins = sorted(p for p in depart.iterdir()
                              if p.is_dir() and not p.name.startswith("."))
         except OSError:
@@ -198,7 +209,7 @@ def chercher_python(base: Path, profondeur: int = 1) -> Path | None:
         for voisin in voisins[:profondeur * 60]:
             for rel in relatifs:
                 candidat = voisin / rel
-                if candidat.is_file():
+                if _fichier(candidat):
                     return candidat
     return None
 

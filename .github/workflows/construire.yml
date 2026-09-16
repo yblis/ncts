@@ -89,8 +89,10 @@ jobs:
         shell: pwsh
         run: |
           $exe = "dist\ULIX NCTS\app\ulix-ncts.exe"
+          # code 2 = « aucun PDF à traiter » : attendu sur un projet vide
           & $exe --projet "$env:RUNNER_TEMP\projet" --simulation --sans-couleur
-          if ($LASTEXITCODE -ne 0) { throw "l'exécutable a renvoyé $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) { throw "l'exécutable a renvoyé $LASTEXITCODE" }
+          if (-not (Test-Path "$env:RUNNER_TEMP\projet\.env")) { throw ".env non créé" }
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -116,7 +118,9 @@ jobs:
         run: python build/construire.py --version "${{ needs.version.outputs.version }}" --embarquer-brew --exiger-installateur
       - name: Contrôle du paquet
         run: |
-          "dist/ULIX NCTS/app/ulix-ncts" --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur
+          # code 2 = « aucun PDF à traiter » : attendu sur un projet vide
+          "dist/ULIX NCTS/app/ulix-ncts" --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur || test $? -eq 2
+          test -f "$RUNNER_TEMP/projet/.env"
       - uses: actions/upload-artifact@v4
         with:
           name: macos
@@ -144,8 +148,10 @@ jobs:
       - name: Contrôle du .deb
         run: |
           sudo apt-get install -y -q ./dist/ulix-ncts_*_amd64.deb
-          ulix-ncts --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur
+          # code 2 = « aucun PDF à traiter » : attendu sur un projet vide
+          ulix-ncts --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur || test $? -eq 2
           test -d "$RUNNER_TEMP/projet/Dépôts unique"
+          test -f "$RUNNER_TEMP/projet/.env"
           dpkg -I dist/ulix-ncts_*_amd64.deb
       - uses: actions/upload-artifact@v4
         with:

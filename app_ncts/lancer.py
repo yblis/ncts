@@ -38,8 +38,13 @@ import sys
 import time
 from pathlib import Path
 
-RACINE = Path(__file__).resolve().parent
-sys.path.insert(0, str(RACINE))
+# Dossier du CODE. En exécutable figé (PyInstaller, voir build/), il n'y a pas de
+# lancer.py : c'est le dossier de l'exécutable, et son parent reste le PROJET.
+if getattr(sys, "frozen", False):
+    RACINE = Path(sys.executable).resolve().parent
+else:
+    RACINE = Path(__file__).resolve().parent
+    sys.path.insert(0, str(RACINE))
 
 from ulix_ncts import config as cfgmod          # noqa: E402
 from ulix_ncts import pdfio, pipeline, render    # noqa: E402
@@ -54,6 +59,8 @@ def _commande() -> str:
     Sur Windows, `python3` n'existe pas (le lanceur s'appelle `python` ou `py`) :
     afficher « python3 lancer.py » enverrait l'utilisateur dans le mur.
     """
+    if plateforme.est_fige():
+        return Path(sys.executable).name
     if plateforme.est_windows():
         return "python lancer.py"
     return "python3 lancer.py"
@@ -112,13 +119,74 @@ def verifier_environnement(cfg: dict) -> list[str]:
                              + ("Installer.cmd" if plateforme.est_windows()
                                 else "installer.command")
                              + " (ou `pip install reportlab pillow`)")
-    if not render.trouver_gabarit(RACINE):
+    if not render.trouver_gabarit(RACINE) and not plateforme.est_fige():
         problemes.append("generate_doc.py (gabarit ULIX) introuvable — vérifier que "
                          "le dossier Documentation/ est bien présent dans app_ncts/")
+    elif not render.trouver_gabarit(RACINE):
+        problemes.append("gabarit generate_doc.py absent de l'exécutable — reconstruire "
+                         "le paquet (build/construire.py)")
     return problemes
 
 
+def _rendu_gabarit(arguments: list[str]) -> int:
+    """Exécute generate_doc.py dans ce processus (exécutable figé).
+
+    L'exécutable se relance lui-même avec ``--rendu-gabarit GABARIT JSON SORTIE``
+    depuis `render.generer` : le gabarit tourne alors avec le reportlab embarqué,
+    exactement comme s'il était appelé par un interpréteur. Aucun autre chemin
+    de rendu n'est introduit.
+    """
+    import runpy
+    if len(arguments) != 3:
+        print("usage interne : --rendu-gabarit GABARIT DATA.json SORTIE.pdf")
+        return 1
+    gabarit, entree, sortie = arguments
+    sys.argv = [gabarit, entree, sortie]
+    try:
+        runpy.run_path(gabarit, run_name="__main__")
+    except SystemExit as exc:
+        return int(exc.code or 0) if isinstance(exc.code, int) or exc.code is None else 1
+    return 0
+
+
+def preparer_projet(cfg: dict, racine: Path, echo=None) -> list[str]:
+    """Crée les dossiers de travail manquants et le `.env` initial.
+
+    Après installation, l'utilisateur trouve ainsi les dépôts prêts à recevoir
+    des fichiers sans rien créer à la main. Le `.env` n'est écrit que s'il
+    n'existe pas, à partir de `.env.example` (livré à côté du code).
+    """
+    faits = []
+    for cle in ("depot_unique", "depot_multiple", "sortie", "archive"):
+        dossier = Path(cfg["dossiers"][cle])
+        if not dossier.exists():
+            try:
+                dossier.mkdir(parents=True, exist_ok=True)
+                faits.append(f"dossier créé : {dossier}")
+            except OSError as exc:
+                faits.append(f"dossier non créé : {dossier} ({exc})")
+    projet = Path(cfg["_projet"])
+    env = projet / cfgmod.NOM_ENV
+    if not env.exists():
+        for modele in (racine / ".env.example", projet / ".env.example",
+                       racine.parent / ".env.example"):
+            if modele.is_file():
+                try:
+                    shutil.copyfile(modele, env)
+                    faits.append(f"fichier créé : {env} (à compléter : clé IA)")
+                except OSError as exc:
+                    faits.append(f"fichier non créé : {env} ({exc})")
+                break
+    if echo:
+        for f in faits:
+            echo(f"  {f}")
+    return faits
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "--rendu-gabarit":
+        return _rendu_gabarit(argv[1:])
     ap = argparse.ArgumentParser(
         description="Génère les annonces d'arrivée NCTS à partir des PDF déposés.",
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -152,6 +220,11 @@ def main(argv: list[str] | None = None) -> int:
                          "poste (fichier privé de l'utilisateur, droits 600), puis quitter")
     ap.add_argument("--statut-ia", action="store_true",
                     help="vérifier l'accès au modèle IA, puis quitter")
+    ap.add_argument("--projet", type=Path,
+                    help="dossier PROJET contenant les dépôts, les annonces et l'archive "
+                         "(défaut : variable ULIX_PROJET, sinon le parent du programme)")
+    ap.add_argument("--preparer", action="store_true",
+                    help="créer les dossiers de dépôt et le fichier .env s'ils manquent, puis quitter")
     ap.add_argument("--depot-unique", type=Path, help="dossier du dépôt unique")
     ap.add_argument("--depot-multiple", type=Path, help="dossier du dépôt multiple")
     ap.add_argument("--sortie", type=Path, help="dossier des annonces générées")
@@ -162,7 +235,11 @@ def main(argv: list[str] | None = None) -> int:
     plateforme.preparer_console()
     _couleur(sys.stdout.isatty() and not args.sans_couleur)
 
-    cfg = cfgmod.charger(RACINE)
+    projet = args.projet or (Path(os.environ["ULIX_PROJET"]) if os.environ.get("ULIX_PROJET") else None)
+    projet = projet.expanduser().resolve() if projet else RACINE.parent
+    # .env du poste (clé Ollama, modèle IA…) : PROJET d'abord, puis dossier du code
+    cfgmod.charger_env(projet, RACINE)
+    cfg = cfgmod.charger(RACINE, projet)
     if args.format:
         cfg["document"]["format_sortie"] = args.format
     _brancher_binaires(cfg)
@@ -178,6 +255,17 @@ def main(argv: list[str] | None = None) -> int:
         cfg["cargowise"]["active"] = True
     if args.autoriser:
         cfg["cargowise"]["autorisation_interactive"] = True
+
+    # --- dossiers de travail prêts à recevoir les dépôts -----------------------
+    faits = preparer_projet(cfg, RACINE)
+    if args.preparer:
+        print(f"{GRIS}ULIX — annonce d'arrivée NCTS : préparation du dossier projet{RAZ}")
+        print(f"  projet : {cfg['_projet']}")
+        for f in faits:
+            print(f"  {f}")
+        if not faits:
+            print("  rien à faire : dossiers et .env déjà en place")
+        return 0
 
     # --- autorisation OAuth / diagnostic CargoWise, avant tout traitement ----
     if args.autoriser:

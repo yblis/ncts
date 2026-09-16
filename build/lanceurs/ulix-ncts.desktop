@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ULIX NCTS — surveiller les dépôts
+Comment=Génère les annonces d'arrivée NCTS depuis les PDF déposés dans ~/ULIX NCTS
+Exec=ulix-ncts --surveiller
+Terminal=true
+Categories=Office;

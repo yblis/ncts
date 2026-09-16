@@ -1,0 +1,25 @@
+ULIX — annonce d'arrivée NCTS
+=============================
+
+Ce dossier est prêt à l'emploi : aucune installation de Python, poppler ou
+tesseract n'est nécessaire avec le paquet Windows.
+
+  Dépôts unique/         déposer ici 1 PDF  -> 1 annonce d'arrivée
+  Dépôts multiple/       déposer ici N PDF  -> 1 annonce d'arrivée unique
+  Annonces d'arrivées/   les documents générés (Prets_a_remettre/, A_verifier/)
+  Archive/               les PDF sources après traitement réussi
+  .env                   réglages du poste : clé IA Ollama, modèle
+  app/                   le programme (ne rien modifier)
+
+Utilisation
+-----------
+  Surveiller  : laisser la fenêtre ouverte ; déposer un PDF suffit.
+  Lancer      : traiter une fois ce qui est déposé, puis fermer.
+
+Repli IA (facultatif)
+---------------------
+Ouvrir « .env » avec le Bloc-notes et renseigner OLLAMA_API_KEY. Le modèle par
+défaut est deepseek-v4.1-flash:cloud ; sans clé, le traitement déterministe
+fonctionne normalement et les champs non lus sont marqués « à compléter ».
+
+Sur macOS et Linux, les dossiers de travail sont dans « ~/ULIX NCTS ».

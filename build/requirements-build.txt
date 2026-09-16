@@ -1,0 +1,7 @@
+# Dépendances de construction des paquets (build/construire.py, GitHub Actions).
+# Les dépendances d'exécution sont celles installées par Installer.command/.cmd.
+reportlab>=4.0
+Pillow>=10.0
+python-docx>=1.1
+zxing-cpp>=2.2
+pyinstaller>=6.10

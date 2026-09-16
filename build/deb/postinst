@@ -1,0 +1,8 @@
+#!/bin/sh
+# Rafraîchit le menu des applications ; les dossiers de travail sont créés
+# par l'utilisateur lui-même au premier lancement (~/ULIX NCTS).
+set -e
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+exit 0

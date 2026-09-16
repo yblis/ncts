@@ -1,0 +1,14 @@
+Package: ulix-ncts
+Version: {VERSION}
+Section: office
+Priority: optional
+Architecture: amd64
+Installed-Size: {TAILLE}
+Depends: poppler-utils, tesseract-ocr, tesseract-ocr-eng
+Maintainer: ULIX SWISS SA <it@ulixgroup.com>
+Homepage: https://github.com/ulix/hermes
+Description: Annonce d'arrivée NCTS depuis les PDF de transit douanier
+ Lit les PDF de transit (TAD UE, TCH suisse, TAD français, CargoWise CW1)
+ et produit l'annonce d'arrivée NCTS d'ULIX SWISS SA (Word ou PDF).
+ Les dossiers de travail de l'utilisateur sont créés dans ~/ULIX NCTS
+ au premier lancement (« ulix-ncts --surveiller »).

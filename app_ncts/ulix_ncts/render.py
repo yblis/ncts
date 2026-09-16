@@ -30,7 +30,16 @@ _LIBELLES_COMMUNS = {"Annonce DA", "Référence", "Date acceptation", "Déclaran
 
 
 def trouver_gabarit(depuis: Path) -> Path | None:
-    """Cherche le gabarit depuis l’application ou la racine du projet."""
+    """Cherche le gabarit depuis l’application ou la racine du projet.
+
+    En exécutable figé (PyInstaller), le gabarit est embarqué dans le dossier
+    des ressources : c'est là qu'on regarde d'abord, le dossier PROJET de
+    l'utilisateur n'ayant aucune raison de contenir ``Documentation/``.
+    """
+    if plateforme.est_fige():
+        embarque = plateforme.dossier_ressources() / GABARIT_REL
+        if embarque.is_file():
+            return embarque
     for base in [depuis, *depuis.parents]:
         for rel in (GABARIT_REL,
                     Path("app_ncts") / GABARIT_REL,
@@ -241,11 +250,18 @@ def generer(data: dict, sortie: Path, gabarit: Path,
     dossier_data.mkdir(parents=True, exist_ok=True)
     json_path = dossier_data / (sortie.stem + ".json")
     json_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    python = _python_du_projet(gabarit)
     with tempfile.TemporaryDirectory(prefix=".rendu-", dir=sortie.parent) as td:
         temporaire = Path(td) / sortie.name
+        if plateforme.est_fige():
+            # Pas d'interpréteur sur le poste : l'exécutable se relance lui-même
+            # avec l'option interne --rendu-gabarit, qui exécute generate_doc.py
+            # avec le reportlab embarqué. Le gabarit reste l'unique chemin de rendu.
+            commande = [sys.executable, "--rendu-gabarit", str(gabarit),
+                        str(json_path), str(temporaire)]
+        else:
+            commande = [_python_du_projet(gabarit), str(gabarit), str(json_path), str(temporaire)]
         try:
-            cp = subprocess.run([python, str(gabarit), str(json_path), str(temporaire)],
+            cp = subprocess.run(commande,
                                 capture_output=True, text=True, errors="replace", timeout=120,
                                 env=plateforme.environnement_sous_processus())
         except (OSError, subprocess.TimeoutExpired) as exc:

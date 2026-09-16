@@ -99,7 +99,66 @@ _ENV_MAP = {
     "CW_OAUTH_TOKEN_ENDPOINT": ("cargowise", "token_endpoint"),
     "CW_OAUTH_RESOURCE_METADATA": ("cargowise", "resource_metadata"),
     "CW_OAUTH_SCOPES": ("cargowise", "scopes"),
+    "ULIX_IA_ACTIVE": ("ia", "active"),
+    "ULIX_IA_MODELE": ("ia", "modele"),
+    "ULIX_IA_URL": ("ia", "base_url"),
 }
+
+# Fichier `.env` : variables lues au démarrage, sans écraser l'environnement réel.
+# Il vit dans le dossier PROJET (à côté des dépôts), jamais dans Git (`.gitignore`).
+NOM_ENV = ".env"
+
+
+def lire_dotenv(chemin: Path) -> dict[str, str]:
+    """Paires ``CLE=valeur`` d'un fichier `.env` (commentaires et guillemets tolérés).
+
+    Aucune interpolation : la valeur est prise telle quelle, guillemets simples
+    ou doubles retirés s'ils entourent toute la valeur. Un fichier illisible
+    donne un dictionnaire vide : l'absence de `.env` n'est jamais une erreur.
+    """
+    out: dict[str, str] = {}
+    try:
+        texte = Path(chemin).read_text(encoding="utf-8-sig")
+    except OSError:
+        return out
+    for brute in texte.splitlines():
+        ligne = brute.strip()
+        if not ligne or ligne.startswith("#") or "=" not in ligne:
+            continue
+        if ligne.lower().startswith("export "):
+            ligne = ligne[7:].strip()
+        cle, _, valeur = ligne.partition("=")
+        cle = cle.strip()
+        valeur = valeur.strip()
+        if len(valeur) >= 2 and valeur[0] == valeur[-1] and valeur[0] in "\"'":
+            valeur = valeur[1:-1]
+        elif " #" in valeur:
+            valeur = valeur.split(" #", 1)[0].rstrip()
+        if cle and all(c.isalnum() or c == "_" for c in cle):
+            out[cle] = valeur
+    return out
+
+
+def charger_env(*dossiers: Path) -> list[Path]:
+    """Charge le premier `.env` trouvé dans `dossiers` dans ``os.environ``.
+
+    Une variable déjà définie dans l'environnement garde sa valeur : le `.env`
+    fournit des défauts de poste (clé Ollama, modèle), il n'impose rien à qui
+    exporte ses variables lui-même. Renvoie les fichiers effectivement lus.
+    """
+    lus: list[Path] = []
+    for dossier in dossiers:
+        if not dossier:
+            continue
+        fichier = Path(dossier) / NOM_ENV
+        if not fichier.is_file():
+            continue
+        for cle, valeur in lire_dotenv(fichier).items():
+            if cle not in os.environ and valeur != "":
+                os.environ[cle] = valeur
+        lus.append(fichier)
+        break
+    return lus
 
 
 def _deep_update(base: dict, patch: dict) -> dict:
@@ -112,6 +171,8 @@ def _deep_update(base: dict, patch: dict) -> dict:
 
 
 def _coerce(section: str, key: str, value):
+    if section == "ia" and key == "active":
+        return str(value).strip().lower() in ("1", "true", "oui", "yes", "on")
     if section == "cargowise" and key == "active":
         return str(value).strip().lower() in ("1", "true", "oui", "yes", "on")
     if section == "cargowise" and key == "autorisation_interactive":

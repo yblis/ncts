@@ -1,8 +1,17 @@
-# Hermes — annonces d’arrivée NCTS
+# Génération d'annonces d’arrivée NCTS
 
 Application Python de génération et de contrôle documentaire NCTS.
 Voir [le guide de l’application](app_ncts/README.md) et
 [l’installation Windows](app_ncts/INSTALLATION-WINDOWS.md).
+
+## Paquets pour les équipes (sans Python ni outils à installer)
+
+Un tag `v1.2.0` poussé sur GitHub déclenche `.github/workflows/construire.yml`,
+qui publie une Release avec l'installateur Windows (Python, poppler et
+tesseract inclus), le `.pkg` macOS et le `.deb` Linux. Le dossier installé
+contient les dépôts prêts à recevoir les fichiers et un `.env` pour la clé IA
+(modèle par défaut `deepseek-v4.1-flash:cloud`). Voir
+[build/DISTRIBUTION.md](build/DISTRIBUTION.md).
 
 ## Configuration locale
 

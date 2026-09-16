@@ -55,6 +55,53 @@ def est_windows() -> bool:
     return os.name == "nt"
 
 
+def est_fige() -> bool:
+    """Vrai quand le programme tourne depuis un exécutable PyInstaller.
+
+    Dans ce mode il n'y a ni ``lancer.py`` ni venv : le code, reportlab et le
+    gabarit sont embarqués, et poppler/tesseract peuvent être livrés dans un
+    sous-dossier ``bin/`` à côté de l'exécutable.
+    """
+    return bool(getattr(sys, "frozen", False))
+
+
+def dossier_application() -> Path:
+    """Dossier du CODE : celui de l'exécutable (figé) ou ``app_ncts/`` (source).
+
+    C'est l'équivalent du dossier de ``lancer.py`` : son parent est le dossier
+    PROJET (dépôts, annonces, archive).
+    """
+    if est_fige():
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+def dossier_ressources() -> Path:
+    """Dossier des fichiers embarqués (gabarit) : ``_internal`` de PyInstaller
+    en mode figé, le dossier du code sinon."""
+    if est_fige():
+        return Path(getattr(sys, "_MEIPASS", dossier_application()))
+    return dossier_application()
+
+
+def dossiers_binaires_embarques() -> list[str]:
+    """Sous-dossiers ``bin/`` livrés avec l'exécutable (poppler, tesseract).
+
+    Disposition produite par ``build/construire.py`` :
+    ``app/bin/poppler/`` et ``app/bin/tesseract/`` (avec ``tessdata/``).
+    On les fouille aussi en mode source, pour tester la disposition sans figer.
+    """
+    base = dossier_application() / "bin"
+    if not base.is_dir():
+        return []
+    out = [str(base / "poppler"), str(base / "tesseract"), str(base)]
+    for extra in ("Library/bin", "poppler/Library/bin"):
+        cand = base / extra
+        if cand.is_dir():
+            out.append(str(cand))
+    return [d for d in out if Path(d).is_dir()]
+
+
 def dossiers_supplementaires() -> list[str]:
     """Dossiers fouillés en plus du PATH.
 
@@ -64,6 +111,9 @@ def dossiers_supplementaires() -> list[str]:
     """
     declare = os.environ.get("ULIX_BINAIRES", "")
     out = [d.strip() for d in declare.split(os.pathsep) if d.strip()]
+    # binaires livrés avec l'exécutable : ils priment sur une installation du
+    # poste, pour que tous les postes travaillent avec la même version
+    out = dossiers_binaires_embarques() + out
     if not est_windows():
         return out
     out += list(_DIRS_WINDOWS)
@@ -84,7 +134,16 @@ def chemin_binaire(nom: str) -> str | None:
     """
     if nom in _RESOLUS:
         return _RESOLUS[nom] or None
-    trouve = shutil.which(nom)
+    trouve = None
+    for dossier in dossiers_binaires_embarques():
+        for candidat in (Path(dossier) / f"{nom}.exe", Path(dossier) / nom):
+            if candidat.is_file():
+                trouve = str(candidat)
+                break
+        if trouve:
+            break
+    if not trouve:
+        trouve = shutil.which(nom)
     if not trouve:
         for dossier in dossiers_supplementaires():
             for candidat in (Path(dossier) / f"{nom}.exe", Path(dossier) / nom):
@@ -202,6 +261,22 @@ def environnement_sous_processus() -> dict:
     env = dict(os.environ)
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    if est_fige():
+        # PyInstaller positionne LD_LIBRARY_PATH sur ses propres bibliothèques :
+        # un poppler/tesseract du système chargerait alors la mauvaise libstdc++.
+        # On restitue l'environnement d'origine pour les sous-processus.
+        for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
+            orig = os.environ.get(var + "_ORIG")
+            if orig is not None:
+                env[var] = orig
+            else:
+                env.pop(var, None)
+    if "FONTCONFIG_FILE" not in env:
+        # poppler embarqué (macOS) : configuration fontconfig livrée avec lui,
+        # sinon pdftoppm cherche celle de Homebrew, absente des postes clients
+        fonts = dossier_application() / "bin" / "poppler" / "fonts.conf"
+        if fonts.is_file():
+            env["FONTCONFIG_FILE"] = str(fonts)
     if "TESSDATA_PREFIX" not in env:
         tess = chemin_binaire("tesseract")
         if tess:

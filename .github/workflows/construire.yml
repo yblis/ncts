@@ -1,0 +1,185 @@
+# Construction des paquets ULIX NCTS : Windows (installateur + portable),
+# macOS (.pkg + zip) et Linux (.deb + tar.gz).
+#
+# - à chaque push/PR : tests unitaires, puis construction de contrôle ;
+# - sur un tag « v1.2.0 » : publication d'une Release GitHub avec les paquets.
+#
+# Le paquet Windows est autonome : Python, reportlab, poppler et tesseract
+# sont livrés. Le paquet macOS embarque poppler/tesseract de Homebrew. Le .deb
+# déclare poppler-utils et tesseract-ocr en dépendances apt.
+name: Construire les paquets
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.12"
+  POPPLER_WINDOWS: "24.08.0-0"      # https://github.com/oschwartz10612/poppler-windows/releases
+  PYTHONUTF8: "1"
+
+jobs:
+  version:
+    name: Numéro de version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+  tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Outils PDF/OCR
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-eng
+      - name: Dépendances
+        run: pip install -r build/requirements-build.txt
+      - name: unittest
+        working-directory: app_ncts
+        run: python -m unittest discover -s tests -v
+
+  windows:
+    name: Windows (installateur + portable)
+    needs: [version, tests]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Dépendances
+        run: pip install -r build/requirements-build.txt
+      - name: Poppler (archive officielle Windows)
+        shell: pwsh
+        run: |
+          $v = "${{ env.POPPLER_WINDOWS }}"
+          Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v$v/Release-$v.zip" -OutFile poppler.zip
+          Expand-Archive poppler.zip -DestinationPath poppler
+          $bin = Get-ChildItem -Path poppler -Recurse -Directory -Filter bin | Where-Object { $_.FullName -like "*Library\bin" } | Select-Object -First 1
+          "POPPLER_BIN=$($bin.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Tesseract (Chocolatey)
+        shell: pwsh
+        run: |
+          choco install tesseract -y --no-progress
+          $dir = "C:\Program Files\Tesseract-OCR"
+          if (-not (Test-Path "$dir\tesseract.exe")) { throw "tesseract.exe introuvable dans $dir" }
+          "TESSERACT_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Construire
+        shell: pwsh
+        run: python build/construire.py --version "${{ needs.version.outputs.version }}" --poppler "$env:POPPLER_BIN" --tesseract "$env:TESSERACT_DIR" --exiger-installateur
+      - name: Contrôle du paquet portable
+        shell: pwsh
+        run: |
+          $exe = "dist\ULIX NCTS\app\ulix-ncts.exe"
+          & $exe --projet "$env:RUNNER_TEMP\projet" --simulation --sans-couleur
+          if ($LASTEXITCODE -ne 0) { throw "l'exécutable a renvoyé $LASTEXITCODE" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS (.pkg + zip)
+    needs: [version, tests]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Poppler et tesseract (Homebrew)
+        run: brew install poppler tesseract
+      - name: Dépendances
+        run: pip install -r build/requirements-build.txt
+      - name: Construire
+        run: python build/construire.py --version "${{ needs.version.outputs.version }}" --embarquer-brew --exiger-installateur
+      - name: Contrôle du paquet
+        run: |
+          "dist/ULIX NCTS/app/ulix-ncts" --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            dist/*.pkg
+            dist/*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux (.deb + tar.gz)
+    needs: [version, tests]
+    # image la plus ancienne disponible : la glibc liée par PyInstaller fixe le minimum requis
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Outils PDF/OCR et dpkg
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-eng dpkg-dev
+      - name: Dépendances
+        run: pip install -r build/requirements-build.txt
+      - name: Construire
+        run: python build/construire.py --version "${{ needs.version.outputs.version }}" --exiger-installateur
+      - name: Contrôle du .deb
+        run: |
+          sudo apt-get install -y -q ./dist/ulix-ncts_*_amd64.deb
+          ulix-ncts --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur
+          test -d "$RUNNER_TEMP/projet/Dépôts unique"
+          dpkg -I dist/ulix-ncts_*_amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Release GitHub
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, windows, macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: paquets
+          merge-multiple: true
+      - name: Sommes de contrôle
+        run: cd paquets && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ULIX NCTS ${{ needs.version.outputs.version }}
+          files: paquets/*
+          generate_release_notes: true
+          body: |
+            Paquets de l'annonce d'arrivée NCTS — version ${{ needs.version.outputs.version }}.
+
+            | Système | Fichier | Remarque |
+            |---|---|---|
+            | Windows | `ULIX-NCTS-…-windows-installateur.exe` | Installation sans droits administrateur dans `Documents\ULIX NCTS`. Python, poppler et tesseract inclus. |
+            | Windows | `ULIX-NCTS-…-windows-portable.zip` | Même contenu, à décompresser n'importe où. |
+            | macOS | `ULIX-NCTS-…-macos.pkg` | Installe `/Applications/ULIX NCTS` ; dossiers de travail dans `~/ULIX NCTS`. Non signé : clic droit → Ouvrir. |
+            | Linux | `ulix-ncts_…_amd64.deb` | `sudo apt install ./ulix-ncts_…_amd64.deb` (installe poppler et tesseract). |
+
+            Renseigner la clé IA dans le fichier `.env` du dossier de travail (modèle par défaut `deepseek-v4.1-flash:cloud`).

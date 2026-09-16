@@ -30,6 +30,8 @@ htmlcov/
 /D*pots unique/
 /D*pots multiple/
 /output/
+/dist/
+/build/dist/
 /tmp/
 /app_ncts/relectures/
 /app_ncts/tests/fixtures/corpus_reference.json

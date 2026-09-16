@@ -115,9 +115,9 @@ def chercher_python(base: Path, profondeur: int = 1) -> Path | None:
     ancêtre du dossier d'où l'on part :
 
     1. en remontant depuis `base` (cas du venv à la racine du projet) ;
-    2. dans les sous-dossiers directs de chaque niveau (cas réel : le script de
-       rendu vit dans ``Documentation/skills/.../scripts`` et le venv est dans
-       ``annonce_arrivee/``, qui est un *voisin*, pas un parent).
+    2. dans les sous-dossiers directs de chaque niveau, pour les installations
+       dont le venv est dans un dossier voisin. Dans la structure courante,
+       le gabarit et le venv sont tous deux sous ``app_ncts/``.
 
     L'appelant valide le candidat (``import reportlab``) : prendre un venv voisin
     sans les bonnes bibliothèques ne suffit pas.

@@ -37,7 +37,7 @@ ne donnent donc pas trois codes-barres d'annonce. Sans annonce originale, les do
 de transit conservent leurs codes-barres MRN. Un numéro d'annonce illisible n'est jamais
 remplacé automatiquement par un MRN.
 
-Une relecture documentaire peut être enregistrée dans `annonce_arrivee/relectures`,
+Une relecture documentaire peut être enregistrée dans `app_ncts/relectures`,
 sous l'empreinte SHA-256 du PDF. Elle ne s'applique qu'au contenu exact relu, même si
 le nom du fichier change. Un autre PDF portant le même nom ne reçoit pas ces données.
 Les relectures conservent leurs preuves, les champs absents et leur méthode ; elles
@@ -58,7 +58,7 @@ et exclues de Git. Les tests publiés utilisent des données fictives.
 En ligne de commande (équivalent, avec options) :
 
 ```bash
-cd annonce_arrivee
+cd app_ncts
 .venv/bin/python3 lancer.py                 # traite les deux dépôts
 .venv/bin/python3 lancer.py --unique        # seulement « Dépots unique »
 .venv/bin/python3 lancer.py --multiple      # seulement « Dépots multiple »
@@ -150,7 +150,7 @@ ne fait jamais tomber la surveillance.
 Double-cliquer **`Lancer.command`** (macOS) ou **`Lancer.cmd`** (Windows), ou :
 
 ```bash
-cd hermes/annonce_arrivee
+cd hermes/app_ncts
 .venv/bin/python3 lancer.py               # les deux dépôts
 .venv/bin/python3 lancer.py --unique      # seulement « Dépots unique »
 .venv/bin/python3 lancer.py --multiple    # seulement « Dépots multiple »
@@ -255,7 +255,7 @@ dans `A_verifier/`. L’incident est consigné au rapport interne.
 
 ### Mise en place chez un utilisateur
 
-1. Copier le dossier `annonce_arrivee` et le dossier `Documentation` à côté des
+1. Copier le dossier `app_ncts` complet (avec son sous-dossier `Documentation`) à côté des
    dépôts (l'arborescence attendue : voir plus bas).
 2. Double-cliquer **`Installer.command`** une fois : il installe poppler,
    tesseract et l'environnement Python local (aucun droit administrateur).
@@ -343,7 +343,8 @@ n'est nécessaire, la découverte OAuth est automatique.
 ## Structure
 
 ```
-annonce_arrivee/
+app_ncts/
+├── Documentation/          scripts de rendu ; documentation interne locale
 ├── Lancer.command          lancement en double-clic
 ├── Installer.command       installation (une fois par poste)
 ├── lancer.py               point d'entrée et options

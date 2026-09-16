@@ -18,7 +18,7 @@ class AnnonceOriginale(unittest.TestCase):
         data=render.dossiers_vers_data(ds,config.DEFAULTS)
         self.assertEqual(len(data['mrns']),3)
         self.assertEqual(data['codes_barres'],['260101-GTAN-DeMo1'])
-        script=Path(__file__).resolve().parents[2]/render.GABARIT_REL
+        script=Path(__file__).resolve().parents[1]/render.GABARIT_REL
         spec=importlib.util.spec_from_file_location('gabarit_annonce',script)
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         self.assertEqual(module._mrns_de(data),['260101-GTAN-DeMo1'])

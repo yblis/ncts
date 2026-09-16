@@ -3,8 +3,8 @@
 Repères de chemin :
   * ``racine`` (``_racine``)  = dossier du script ``lancer.py`` (code) ;
   * ``projet`` (``_projet``)  = son parent = dossier métier qui contient
-    « Dépots unique », « Dépots multiple », « Annonces d'arrivées », « Archive »
-    et ``Documentation/``.
+    « Dépots unique », « Dépots multiple », « Annonces d'arrivées », « Archive ».
+  * ``Documentation/`` se trouve dans la racine du code, à côté de ``lancer.py``.
 
 Les dossiers de travail sont résolus relativement au dossier PROJET (et non au
 code), avec tolérance des variantes d'accents et du NFD macOS.

@@ -114,7 +114,7 @@ def verifier_environnement(cfg: dict) -> list[str]:
                              + " (ou `pip install reportlab pillow`)")
     if not render.trouver_gabarit(RACINE):
         problemes.append("generate_doc.py (gabarit ULIX) introuvable — vérifier que "
-                         "le dossier Documentation/ est bien présent")
+                         "le dossier Documentation/ est bien présent dans app_ncts/")
     return problemes
 
 

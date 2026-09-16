@@ -22,7 +22,7 @@ htmlcov/
 *.p12
 *.pfx
 .ulix_ncts*.json
-/annonce_arrivee/config.json
+/app_ncts/config.json
 
 # Documents métier, extractions et sorties : restent sur le poste
 /Archive/
@@ -31,8 +31,8 @@ htmlcov/
 /D*pots multiple/
 /output/
 /tmp/
-/annonce_arrivee/relectures/
-/annonce_arrivee/tests/fixtures/corpus_reference.json
+/app_ncts/relectures/
+/app_ncts/tests/fixtures/corpus_reference.json
 *.pdf
 *.docx
 *.doc
@@ -43,12 +43,12 @@ htmlcov/
 *.jpeg
 
 # Documentation et plugin internes ; seuls les scripts sont publiés
-/Documentation/*
-!/Documentation/skills/
-/Documentation/skills/*
-!/Documentation/skills/ulix-doc-arrivee-ncts/
-/Documentation/skills/ulix-doc-arrivee-ncts/*
-!/Documentation/skills/ulix-doc-arrivee-ncts/scripts/
+/app_ncts/Documentation/*
+!/app_ncts/Documentation/skills/
+/app_ncts/Documentation/skills/*
+!/app_ncts/Documentation/skills/ulix-doc-arrivee-ncts/
+/app_ncts/Documentation/skills/ulix-doc-arrivee-ncts/*
+!/app_ncts/Documentation/skills/ulix-doc-arrivee-ncts/scripts/
 
 # Sorties de traitement et validations nominatives
 Prets_a_remettre/

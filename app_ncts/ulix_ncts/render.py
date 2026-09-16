@@ -30,9 +30,10 @@ _LIBELLES_COMMUNS = {"Annonce DA", "Référence", "Date acceptation", "Déclaran
 
 
 def trouver_gabarit(depuis: Path) -> Path | None:
-    """Cherche generate_doc.py en remontant l'arborescence."""
+    """Cherche le gabarit depuis l’application ou la racine du projet."""
     for base in [depuis, *depuis.parents]:
         for rel in (GABARIT_REL,
+                    Path("app_ncts") / GABARIT_REL,
                     Path("ulix-ncts-arrivee/skills/ulix-doc-arrivee-ncts/scripts/generate_doc.py"),
                     Path("skills/ulix-doc-arrivee-ncts/scripts/generate_doc.py")):
             cand = base / rel
@@ -278,7 +279,7 @@ def _python_du_projet(gabarit: Path) -> str:
 def _candidats_python(base: Path):
     """Interpréteurs candidats, du plus probable au plus général.
 
-    1. le venv à côté de CE module (``annonce_arrivee/.venv``) : c'est le cas
+    1. le venv à côté de CE module (``app_ncts/.venv``) : c'est le cas
        normal, et le seul qui ne dépende pas de l'endroit d'où l'on appelle ;
     2. le venv trouvé en remontant depuis `base` ;
     3. les interpréteurs du système.
@@ -286,7 +287,7 @@ def _candidats_python(base: Path):
     Le rendu teste chaque candidat avec `import reportlab` : on ne retient que
     celui qui sait réellement produire le PDF.
     """
-    ici = Path(__file__).resolve().parent.parent          # annonce_arrivee/
+    ici = Path(__file__).resolve().parent.parent          # app_ncts/
     for depart in (ici, base, *base.parents):
         trouve = plateforme.chercher_python(depart, profondeur=0)
         if trouve:

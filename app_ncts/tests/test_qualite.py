@@ -66,7 +66,7 @@ class Fiabilite(unittest.TestCase):
             source=root/'depot_unique'/'source.pdf';source.write_bytes(b'%PDF-test')
             d=self.dossier();d.dm='';d.fichiers=[source.name]
             an=p.Analyse(pdf=source,dossiers=[d])
-            gabarit=Path(__file__).resolve().parents[2]/render.GABARIT_REL
+            gabarit=Path(__file__).resolve().parents[1]/render.GABARIT_REL
             with patch.object(p,'analyser_pdf',return_value=an),patch.object(render,'trouver_gabarit',return_value=gabarit):
                 resultat=p.executer(cfg)
             self.assertTrue(source.exists());self.assertEqual(resultat.sorties,[])

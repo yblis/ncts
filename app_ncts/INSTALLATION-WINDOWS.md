@@ -5,7 +5,7 @@ ce qui change sur Windows.
 
 ## En trois étapes
 
-1. Copier le dossier `annonce_arrivee` **et** le dossier `Documentation` à côté
+1. Copier le dossier `app_ncts` complet, **avec son sous-dossier `Documentation`**, à côté
    des dossiers de dépôt, comme sur macOS :
 
    ```
@@ -14,8 +14,8 @@ ce qui change sur Windows.
    ├── Dépots multiple\
    ├── Annonces d'arrivées\
    ├── Archive\
-   ├── Documentation\
-   └── annonce_arrivee\      <- le programme
+   └── app_ncts\             <- le programme
+       └── Documentation\   <- les scripts de rendu
    ```
 
 2. Double-cliquer **`Installer.cmd`** (une seule fois). Il crée
@@ -143,7 +143,7 @@ pdftoppm -v
 tesseract --version
 ```
 
-Puis ferme et rouvre Powershell dans le dossier "annonce_arrivee"
+Puis ferme et rouvre Powershell dans le dossier "app_ncts"
 
 lancer la commande suivante:
 

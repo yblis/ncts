@@ -10,10 +10,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ulix_ncts import config, pipeline as p, extract as e, render, surveillance as s, ia, cw_client as cw
 from ulix_ncts.classify import Verdict
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 GABARIT = ROOT / render.GABARIT_REL
 
 class Metier(unittest.TestCase):
+    def test_gabarit_embarque_depuis_projet_application_et_outil(self):
+        with tempfile.TemporaryDirectory() as td:
+            projet = Path(td)
+            application = projet / 'app_ncts'
+            gabarit = application / render.GABARIT_REL
+            gabarit.parent.mkdir(parents=True)
+            gabarit.write_text('# Gabarit fictif pour la résolution de chemin\n')
+            outil = application / 'tools' / 'validation.py'
+            outil.parent.mkdir()
+            outil.touch()
+            for depart in (projet, application, outil):
+                with self.subTest(depart=depart):
+                    self.assertEqual(render.trouver_gabarit(depart), gabarit)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

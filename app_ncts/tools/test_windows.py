@@ -40,7 +40,7 @@ def main() -> int:
     verifier(rel_win.parent.name == "Scripts" and rel_win.name == "python.exe",
              "chemin Windows : .venv\\Scripts\\python.exe")
     # le venv réel doit être trouvé depuis un dossier ÉLOIGNÉ (cas du rendu)
-    gabarit = RACINE / ".." / "Documentation" / "skills" / "ulix-doc-arrivee-ncts" / "scripts"
+    gabarit = RACINE / "Documentation" / "skills" / "ulix-doc-arrivee-ncts" / "scripts"
     trouve = plateforme.chercher_python(gabarit.resolve(), profondeur=1)
     verifier(trouve is not None and trouve.is_file(),
              f"venv trouvé depuis le dossier du gabarit : "

@@ -1,0 +1,20 @@
+{
+  "description": "Exemple entièrement fictif. Fournir ses propres PDF et références privés avec --reference.",
+  "cas": [
+    {
+      "source_pdf": "transit_demo.pdf",
+      "attendus": {
+        "mrn": "26CH07STTEST000001",
+        "nombre_articles": 1,
+        "total_colis": 2,
+        "total_brut": 10.0,
+        "codes_nc": [
+          "12345678"
+        ],
+        "masses_nettes": [
+          8.0
+        ]
+      }
+    }
+  ]
+}

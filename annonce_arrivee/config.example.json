@@ -1,0 +1,44 @@
+{
+  "_commentaire": "Exemple public sans identifiants. Copier vers config.json et configurer localement.",
+  "dossiers": {
+    "depot_unique": "Dépots unique",
+    "depot_multiple": "Dépots multiple",
+    "sortie": "Annonces d'arrivées",
+    "archive": "Archive"
+  },
+  "traitement": {
+    "deplacer_traite": true,
+    "ecrire_data_json": true,
+    "ecrire_rapport": true,
+    "dpi_ocr": 200,
+    "langue_ocr": "eng"
+  },
+  "document": {
+    "numero_controle": "3140",
+    "societe": "ULIX SWISS SA"
+  },
+  "cargowise": {
+    "active": false,
+    "url": "",
+    "token": "",
+    "resource_metadata": "",
+    "client_id": "",
+    "client_secret": "",
+    "token_endpoint": "",
+    "scopes": [
+      "read"
+    ],
+    "autorisation_interactive": false,
+    "timeout_s": 20,
+    "outil_entete": [
+      "cargowise_get_ncts",
+      "get_ncts"
+    ],
+    "outil_dossier": [
+      "cargowise_get_shipment",
+      "cargowise_get_record",
+      "get_shipment",
+      "get_record"
+    ]
+  }
+}

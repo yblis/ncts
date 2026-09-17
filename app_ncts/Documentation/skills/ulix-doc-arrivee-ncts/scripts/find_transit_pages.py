@@ -8,8 +8,8 @@ Pipeline « cheap-first » (fiable ET rapide) :
   1. Couche texte (pdftotext) par page — instantané, gratuit. Suffit pour la
      plupart des formulaires douaniers générés électroniquement.
   2. UNIQUEMENT pour les pages sans couche texte exploitable : OCR du seul
-     BANDEAU HAUT (≈ 22 % de la page) à 150 dpi, avec essais de rotation
-     (0/90/180/270). On lit le titre et la case TYPE, pas toute la page.
+     BANDEAU HAUT (≈ 22 % de la page) à 150 dpi, après détection PaddleOCR
+     de l'orientation. On lit le titre et la case TYPE, pas toute la page.
   3. Score par ancres : positives (transit) − négatives (export/autre).
      Verrou anti-piège : un titre/type d'EXPORT force le rejet même si la
      mise en page est celle d'un SAD/transit.
@@ -18,7 +18,7 @@ Usage :
     python3 find_transit_pages.py fichier.pdf [--json] [--dpi 150]
 
 Sortie : pages de transit retenues, type détecté, et raison du rejet des
-pages « pièges ». Dépendances : pdftotext, pdftoppm, tesseract, Pillow.
+pages « pièges ». Dépendances : pdftotext, pdftoppm, PaddleOCR, Pillow.
 """
 
 import json
@@ -88,51 +88,15 @@ def text_layer(pdf, p):
     return _run(["pdftotext", "-f", str(p), "-l", str(p), pdf, "-"]).stdout
 
 
-def _orientation(img_path):
-    """Angle de rotation à appliquer (sens horaire) d'après l'OSD tesseract.
-    Renvoie 0 si indéterminé."""
-    out = _run(["tesseract", str(img_path), "-", "--psm", "0"]).stdout
-    m = re.search(r"Rotate:\s*(\d+)", out)
-    return int(m.group(1)) % 360 if m else 0
-
-
 def ocr_header(pdf, p, dpi):
-    """OCR du seul bandeau haut. Détecte l'orientation via l'OSD tesseract
-    (1 passe) puis OCR une seule fois — rapide. Repli multi-rotation seulement
-    si l'OSD échoue."""
-    try:
-        from PIL import Image
-    except ImportError:
-        return ""
-    with tempfile.TemporaryDirectory() as td:
-        base = Path(td) / "pg"
-        _run(["pdftoppm", "-png", "-r", str(dpi), "-f", str(p), "-l", str(p),
-              pdf, str(base)])
-        pngs = list(Path(td).glob("pg*.png"))
-        if not pngs:
-            return ""
-        im = Image.open(pngs[0])
-
-        def ocr_band(angle):
-            r = im.rotate(angle, expand=True) if angle else im
-            w, h = r.size
-            band = r.crop((0, 0, w, int(h * 0.22)))
-            bp = Path(td) / f"b{angle}.png"
-            band.save(bp)
-            return _run(["tesseract", str(bp), "-", "-l", "eng",
-                         "--psm", "6"]).stdout
-
-        rot = _orientation(pngs[0])           # OSD : une passe
-        txt = ocr_band(rot)
-        score = sum(1 for pat, _ in POS + NEG_EXPORT + NEG_OTHER
-                    if re.search(pat, txt, re.I))
-        if score == 0:                        # OSD peu sûr -> repli ciblé
-            for angle in (a for a in (0, 90, 180, 270) if a != rot):
-                t2 = ocr_band(angle)
-                if sum(1 for pat, _ in POS + NEG_EXPORT + NEG_OTHER
-                       if re.search(pat, t2, re.I)) > 0:
-                    return t2
-        return txt
+    """Réutilise le moteur PaddleOCR et l'orientation de l'application."""
+    for base in Path(__file__).resolve().parents:
+        if (base / "ulix_ncts").is_dir():
+            if str(base) not in sys.path:
+                sys.path.insert(0, str(base))
+            break
+    from ulix_ncts.pdfio import ocr_bandeau_haut
+    return ocr_bandeau_haut(Path(pdf), p, dpi)
 
 
 def classify(text):

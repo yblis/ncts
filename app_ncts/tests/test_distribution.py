@@ -159,14 +159,11 @@ class ExecutableFige(unittest.TestCase):
             faux = app / "bin" / "poppler" / "pdftotext"
             faux.parent.mkdir(parents=True)
             faux.write_text("#!/bin/sh\n")
-            (app / "bin" / "tesseract" / "tessdata").mkdir(parents=True)
-            (app / "bin" / "tesseract" / "tesseract").write_text("#!/bin/sh\n")
             with patch.object(plateforme, "dossier_application", return_value=app):
                 plateforme.oublier_binaires()
                 try:
                     self.assertEqual(plateforme.chemin_binaire("pdftotext"), str(faux))
                     env = plateforme.environnement_sous_processus()
-                    self.assertEqual(env.get("TESSDATA_PREFIX"), str(app / "bin" / "tesseract" / "tessdata"))
                 finally:
                     plateforme.oublier_binaires()
 

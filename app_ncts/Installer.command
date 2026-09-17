@@ -11,26 +11,26 @@ cd "$(dirname "$0")" || exit 1
 echo "ULIX — annonce d'arrivée NCTS : installation de l'environnement"
 echo
 
-# --- 1. binaires poppler / tesseract -----------------------------------------
+# --- 1. binaires poppler -----------------------------------------
 MANQUANTS=""
-for b in pdfinfo pdftotext pdftoppm tesseract; do
+for b in pdfinfo pdftotext pdftoppm; do
     command -v "$b" >/dev/null 2>&1 || MANQUANTS="$MANQUANTS $b"
 done
 if [ -n "$MANQUANTS" ]; then
     echo "Outils manquants :$MANQUANTS"
     if command -v brew >/dev/null 2>&1; then
         echo "Installation via Homebrew…"
-        brew install poppler tesseract || exit 1
+        brew install poppler || exit 1
     else
         echo "Homebrew est introuvable."
-        echo "Installez poppler et tesseract, puis relancez ce script :"
+        echo "Installez poppler, puis relancez ce script :"
         echo "  1. https://brew.sh  (copier-coller la commande proposée dans le Terminal)"
-        echo "  2. brew install poppler tesseract"
+        echo "  2. brew install poppler"
         read -r -p "Appuyez sur Entrée pour fermer…" _
         exit 1
     fi
 else
-    echo "Outils PDF et OCR : OK"
+    echo "Outils PDF : OK"
 fi
 
 # --- 2. environnement Python --------------------------------------------------
@@ -58,9 +58,9 @@ if [ ! -d .venv ]; then
     }
 fi
 
-echo "Installation des bibliothèques (reportlab, Pillow)…"
+echo "Installation des bibliothèques et moteur PaddleOCR…"
 .venv/bin/python -m pip install --quiet --upgrade pip
-.venv/bin/python -m pip install --quiet reportlab python-docx pillow "zxing-cpp>=2.2,<4" || {
+.venv/bin/python -m pip install --quiet -r requirements.txt || {
     echo "L'installation des bibliothèques a échoué (vérifiez la connexion réseau)."
     read -r -p "Appuyez sur Entrée pour fermer…" _
     exit 1
@@ -71,6 +71,8 @@ echo "Vérification…"
 .venv/bin/python -c "import reportlab, PIL; print('reportlab et Pillow : OK')"
 
 echo
+.venv/bin/python -m ulix_ncts.ocr_paddle || exit 1
+
 echo "Installation terminée. Pour générer les annonces, double-cliquez sur"
 echo "« Lancer.command »."
 read -r -p "Appuyez sur Entrée pour fermer…" _

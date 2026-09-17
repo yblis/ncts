@@ -1,7 +1,7 @@
 # Distribution : paquets Windows, macOS et Linux
 
 Les équipes n'installent ni Python, ni les bibliothèques, ni (sous Windows et
-macOS) poppler et tesseract : tout est livré dans le paquet. Cette page décrit ce
+macOS) poppler et PaddleOCR : tout est livré dans le paquet. Cette page décrit ce
 que produit la chaîne, comment publier une version et comment dépanner.
 
 ## Ce que reçoivent les équipes
@@ -10,10 +10,10 @@ que produit la chaîne, comment publier une version et comment dépanner.
 |---|---|---|
 | Windows | `ULIX-NCTS-<v>-windows-installateur.exe` | Installateur Inno Setup, **sans droits administrateur**. Installe dans `Documents\ULIX NCTS`, crée les dépôts, le `.env`, les raccourcis du menu Démarrer (« Surveiller les dépôts », « Traiter maintenant ») et, en option, le lancement à l'ouverture de session. |
 | Windows | `ULIX-NCTS-<v>-windows-portable.zip` | Le même dossier, à décompresser n'importe où (clé USB, partage réseau). |
-| macOS | `ULIX-NCTS-<v>-macos.pkg` | Installe `/Applications/ULIX NCTS` avec poppler et tesseract embarqués. Les dossiers de travail sont créés dans `~/ULIX NCTS`. |
+| macOS | `ULIX-NCTS-<v>-macos.pkg` | Installe `/Applications/ULIX NCTS` avec poppler et PaddleOCR embarqués. Les dossiers de travail sont créés dans `~/ULIX NCTS`. |
 | macOS | `ULIX-NCTS-<v>-macos.zip` | Le même dossier, à glisser où l'on veut. |
-| Linux | `ulix-ncts_<v>_amd64.deb` | `sudo apt install ./ulix-ncts_<v>_amd64.deb` ; apt installe `poppler-utils` et `tesseract-ocr`. Commande `ulix-ncts`, dossiers dans `~/ULIX NCTS`. |
-| Linux | `ULIX-NCTS-<v>-linux-portable.tar.gz` | Sans installation ; poppler et tesseract doivent être présents. |
+| Linux | `ulix-ncts_<v>_amd64.deb` | `sudo apt install ./ulix-ncts_<v>_amd64.deb` ; apt installe `poppler-utils`. Commande `ulix-ncts`, dossiers dans `~/ULIX NCTS`. |
+| Linux | `ULIX-NCTS-<v>-linux-portable.tar.gz` | Sans installation ; poppler et PaddleOCR doivent être présents. |
 
 Disposition du dossier livré, identique à `hermes/` en développement :
 
@@ -31,7 +31,7 @@ ULIX NCTS/
 └── app/
     ├── ulix-ncts(.exe)     exécutable PyInstaller
     ├── _internal/          Python, reportlab, python-docx, zxing-cpp, generate_doc.py
-    └── bin/poppler, bin/tesseract (+ tessdata)   Windows et macOS seulement
+    └── bin/poppler   Windows et macOS seulement
 ```
 
 Le dossier PROJET est le parent de `app/` (comme `hermes/` est le parent de
@@ -50,7 +50,7 @@ OLLAMA_BASE_URL=                         vide = https://ollama.com/v1
 ULIX_IA_MODELE=deepseek-v4.1-flash:cloud modèle vision de repli
 ULIX_IA_ACTIVE=true                      false = jamais d'appel au modèle
 ULIX_PROJET=                             dossier de travail (facultatif)
-ULIX_BINAIRES=                           poppler/tesseract hors PATH (facultatif)
+ULIX_BINAIRES=                           poppler hors PATH (facultatif)
 ```
 
 Une variable déjà définie dans l'environnement du système garde la priorité.
@@ -68,13 +68,13 @@ git push origin v1.2.0
 
 `.github/workflows/construire.yml` :
 
-1. `tests` : unittest sur Ubuntu (poppler/tesseract via apt).
+1. `tests` : unittest sur Ubuntu (poppler via apt).
 2. `windows` : télécharge l'archive poppler officielle (version épinglée
-   `POPPLER_WINDOWS`), installe tesseract via Chocolatey, lance
-   `build/construire.py --poppler … --tesseract …`, compile l'installateur
+   `POPPLER_WINDOWS`), lance
+   `build/construire.py --poppler …`, compile l'installateur
    avec Inno Setup (préinstallé sur les runners), vérifie que l'exécutable
    démarre en `--simulation`.
-3. `macos` : `brew install poppler tesseract`, `construire.py --embarquer-brew`
+3. `macos` : `brew install poppler`, `construire.py --embarquer-brew`
    (copie les dylib, réécrit les chemins, resigne ad hoc), `pkgbuild`.
 4. `linux` : `construire.py` sur ubuntu-22.04 (glibc minimale), `dpkg-deb`,
    puis installation réelle du `.deb` et lancement en `--simulation`.
@@ -89,7 +89,7 @@ workflow (onglet Actions), sans Release.
 pip install -r build/requirements-build.txt
 python3 build/construire.py --version 1.2.0                       # système courant
 python3 build/construire.py --embarquer-brew                      # macOS : binaires Homebrew
-python  build\construire.py --poppler "C:\poppler\Library\bin" --tesseract "C:\Program Files\Tesseract-OCR"
+python  build\construire.py --poppler "C:\poppler\Library\bin"
 ```
 
 Sortie dans `dist/` (ignoré par Git). `--sans-paquet` s'arrête au dossier assemblé.
@@ -102,8 +102,8 @@ Sortie dans `dist/` (ignoré par Git). `--sans-paquet` s'arrête au dossier asse
 - `render.generer` relance l'exécutable avec `--rendu-gabarit GABARIT JSON PDF` :
   `lancer.py` exécute alors `generate_doc.py` via `runpy` avec le reportlab
   embarqué. Le gabarit reste l'unique chemin de rendu.
-- `plateforme.chemin_binaire` fouille `app/bin/poppler` et `app/bin/tesseract`
-  avant le PATH ; `TESSDATA_PREFIX` et `FONTCONFIG_FILE` sont déduits.
+- `plateforme.chemin_binaire` fouille `app/bin/poppler`
+  avant le PATH ; `FONTCONFIG_FILE` est déduit.
 - `lancer.preparer_projet` crée les dossiers de dépôt et le `.env` manquants à
   chaque lancement (idempotent) ; `--preparer` fait seulement cela puis quitte.
 
@@ -119,5 +119,9 @@ Sortie dans `dist/` (ignoré par Git). `--sans-paquet` s'arrête au dossier asse
 - **macOS.** Le paquet est construit pour l'architecture du runner
   (`macos-latest` = Apple Silicon). Pour des Mac Intel, ajouter un job
   `macos-13`.
-- **Linux.** Le `.deb` ne livre pas poppler/tesseract : apt les installe.
-- **Taille.** 200 à 250 Mo décompressés, dont l'essentiel pour tesseract et poppler.
+- **Linux.** Le `.deb` ne livre pas poppler : apt les installe.
+- **Taille.** Le moteur PaddleOCR, ses dépendances et ses modèles augmentent sensiblement la taille ; mesurer chaque paquet produit.
+
+## Modèles OCR embarqués
+
+La construction prépare les trois modèles PaddleOCR dans `build/ocr_models`, les embarque dans `_internal/ocr_models`, puis lance `--statut-ocr` sur l’exécutable produit. Ce test doit réussir avant distribution. Les poids sont téléchargés à la construction ; aucun téléchargement de modèle n’est nécessaire sur le poste destinataire.

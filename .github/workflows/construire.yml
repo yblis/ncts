@@ -4,9 +4,9 @@
 # - à chaque push/PR : tests unitaires, puis construction de contrôle ;
 # - sur un tag « v1.2.0 » : publication d'une Release GitHub avec les paquets.
 #
-# Le paquet Windows est autonome : Python, reportlab, poppler et tesseract
-# sont livrés. Le paquet macOS embarque poppler/tesseract de Homebrew. Le .deb
-# déclare poppler-utils et tesseract-ocr en dépendances apt.
+# Le paquet Windows est autonome : Python, reportlab, poppler et PaddleOCR
+# sont livrés. Le paquet macOS embarque poppler de Homebrew. Le .deb
+# déclare poppler-utils en dépendances apt.
 name: Construire les paquets
 
 on:
@@ -49,7 +49,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Outils PDF/OCR
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-eng
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: Dépendances
         run: pip install -r build/requirements-build.txt
       - name: unittest
@@ -75,16 +75,9 @@ jobs:
           Expand-Archive poppler.zip -DestinationPath poppler
           $bin = Get-ChildItem -Path poppler -Recurse -Directory -Filter bin | Where-Object { $_.FullName -like "*Library\bin" } | Select-Object -First 1
           "POPPLER_BIN=$($bin.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Tesseract (Chocolatey)
-        shell: pwsh
-        run: |
-          choco install tesseract -y --no-progress
-          $dir = "C:\Program Files\Tesseract-OCR"
-          if (-not (Test-Path "$dir\tesseract.exe")) { throw "tesseract.exe introuvable dans $dir" }
-          "TESSERACT_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Construire
         shell: pwsh
-        run: python build/construire.py --version "${{ needs.version.outputs.version }}" --poppler "$env:POPPLER_BIN" --tesseract "$env:TESSERACT_DIR" --exiger-installateur
+        run: python build/construire.py --version "${{ needs.version.outputs.version }}" --poppler "$env:POPPLER_BIN" --exiger-installateur
       - name: Contrôle du paquet portable
         shell: pwsh
         run: |
@@ -115,8 +108,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Poppler et tesseract (Homebrew)
-        run: brew install poppler tesseract
+      - name: Poppler (Homebrew)
+        run: brew install poppler
       - name: Dépendances
         run: pip install -r build/requirements-build.txt
       - name: Construire
@@ -145,7 +138,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Outils PDF/OCR et dpkg
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-eng dpkg-dev
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils dpkg-dev
       - name: Dépendances
         run: pip install -r build/requirements-build.txt
       - name: Construire
@@ -188,9 +181,9 @@ jobs:
 
             | Système | Fichier | Remarque |
             |---|---|---|
-            | Windows | `ULIX-NCTS-…-windows-installateur.exe` | Installation sans droits administrateur dans `Documents\ULIX NCTS`. Python, poppler et tesseract inclus. |
+            | Windows | `ULIX-NCTS-…-windows-installateur.exe` | Installation sans droits administrateur dans `Documents\ULIX NCTS`. Python, poppler et PaddleOCR inclus. |
             | Windows | `ULIX-NCTS-…-windows-portable.zip` | Même contenu, à décompresser n'importe où. |
             | macOS | `ULIX-NCTS-…-macos.pkg` | Installe `/Applications/ULIX NCTS` ; dossiers de travail dans `~/ULIX NCTS`. Non signé : clic droit → Ouvrir. |
-            | Linux | `ulix-ncts_…_amd64.deb` | `sudo apt install ./ulix-ncts_…_amd64.deb` (installe poppler et tesseract). |
+            | Linux | `ulix-ncts_…_amd64.deb` | `sudo apt install ./ulix-ncts_…_amd64.deb` (installe poppler et PaddleOCR). |
 
             Renseigner la clé IA dans le fichier `.env` du dossier de travail (modèle par défaut `deepseek-v4.1-flash:cloud`).

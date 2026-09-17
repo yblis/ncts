@@ -46,6 +46,7 @@ class ResultatCW:
     outils: list = field(default_factory=list)      # outils exposés par le serveur
     avertissements: list = field(default_factory=list)
     autorisation_requise: bool = False
+    liaisons_bi: dict = field(default_factory=dict)  # MRN -> dossier confirmé par eDoc
 
 
 class AutorisationRequise(RuntimeError):
@@ -159,9 +160,19 @@ class _MCP:
                     return nom
         return ""
 
+    def schema_arguments(self, outil):
+        schema = self._schemas.get(outil) or {}
+        interne = (schema.get('properties') or {}).get('params')
+        if isinstance(interne, dict):
+            ref = interne.get('$ref', '')
+            if ref.startswith('#/$defs/'):
+                interne = schema.get('$defs', {}).get(ref.rsplit('/', 1)[-1], {})
+            return interne, True
+        return schema, False
+
     def parametre(self, outil: str, candidats: list[str]) -> str:
         """Nom réel du paramètre attendu par `outil` (schéma ou convention)."""
-        schema = self._schemas.get(outil) or {}
+        schema, _ = self.schema_arguments(outil)
         props = list((schema.get("properties") or {}).keys())
         for nom in candidats:
             if nom in props:
@@ -169,11 +180,21 @@ class _MCP:
         return candidats[0] if candidats else ""
 
     def appeler_outil(self, nom: str, arguments: dict) -> str:
+        schema, imbrique = self.schema_arguments(nom)
+        if imbrique and 'params' not in arguments:
+            arguments = dict(arguments)
+            props = schema.get('properties', {})
+            for ancien in ('shipmentNumber', 'declarationKey', 'declaration_key'):
+                if ancien in arguments and ancien not in props and 'key' in props:
+                    arguments['key'] = arguments.pop(ancien)
+            arguments = {'params': arguments}
         res = self.appeler("tools/call", {"name": nom, "arguments": arguments})
         contenus = res.get("content", [])
         texte = "\n".join(c.get("text", "") for c in contenus if isinstance(c, dict))
         if not texte and res.get("structuredContent"):
             texte = json.dumps(res["structuredContent"])
+        if res.get("isError"):
+            raise RuntimeError(texte or "Erreur de l'outil MCP")
         return texte
 
 
@@ -203,11 +224,16 @@ def lire_entete_ncts(texte: str) -> dict:
     if not isinstance(donnees, dict):
         return {}
 
+    if donnees.get("found") is False or donnees.get("error"):
+        return {}
+
     def premier(*noms):
         for nom in noms:
             for cle, valeur in donnees.items():
-                if _norme(cle) == _norme(nom) and not isinstance(valeur, (dict, list)):
-                    if str(valeur).strip():
+                if _norme(cle) == _norme(nom):
+                    if isinstance(valeur, dict):
+                        valeur = valeur.get('code')
+                    if valeur is not None and not isinstance(valeur, (dict, list)) and str(valeur).strip():
                         return str(valeur).strip()
         return ""
 
@@ -358,8 +384,13 @@ def connecter(cfg: dict, echo=print, interactif: bool = False):
     return mcp, res
 
 
-def interroger(cfg: dict, cles: list[str], echo=print) -> ResultatCW:
-    """Récupère l'en-tête NCTS des clés données (NCT…, DM…, MRN…)."""
+def interroger(cfg: dict, cles: list[str], echo=print,
+               mrns: list[str] | None = None) -> ResultatCW:
+    """Lit les clés connues ou recherche par MRN via le MCP CargoWise.
+
+    L'outil de recherche est optionnel : son absence est distinguée d'une
+    recherche vide. Voir CONTRAT-IKAMO-MRN.md pour le contrat à fournir serveur.
+    """
     cw = cfg.get("cargowise", {})
     if not cw.get("active"):
         return ResultatCW(message="enrichissement CargoWise désactivé")
@@ -367,11 +398,52 @@ def interroger(cfg: dict, cles: list[str], echo=print) -> ResultatCW:
     if mcp is None:
         return res
     cles = [c for c in dict.fromkeys(cles) if c]
+    if not cles and 'cargowise_find_by_mrn' in res.outils and not cw.get('_index_deja_interroge'):
+        return _interroger_index(cfg, mcp, res, mrns or [], echo)
+    attendus = {}
+    source_bi = ''
+    bi_active = cfg.get('bi', {}).get('active', False)
+    if not cles and bi_active:
+        from . import bi_client
+        resolution = bi_client.resoudre(cfg, mrns or [])
+        res.avertissements.extend(f"BI : {m}" for m in resolution.messages)
+        attendus = resolution.cles
+        source_bi = resolution.source
+        if resolution.dossiers:
+            return _interroger_dossiers_bi(mcp, res, resolution)
+        cles = list(attendus)
+        if not cles:
+            res.message = "Liaison PDF / CargoWise non résolue par la BI ; voir le diagnostic BI"
+            return res
     if not cles:
-        res.message = ("aucune clé NCT… à interroger : les PDF déposés n'en contiennent "
-                       "pas. Fournir la clé de déclaration (--nct NCT…) ou la mettre "
-                       "dans le nom du fichier")
-        return res
+        valides = list(dict.fromkeys(m for m in (mrns or [])
+                                    if re.fullmatch(r'\d{2}[A-Z]{2}[A-Z0-9]{14}', m)))
+        if not valides:
+            res.message = "Recherche CargoWise impossible : aucun MRN complet extrait du PDF"
+            return res
+        recherche = mcp.nom_outil(['cargowise_find_arrival_by_mrn'])
+        if not recherche:
+            res.message = ("Liaison PDF / CargoWise indisponible : le serveur CargoWise "
+                           "n'expose pas cargowise_find_arrival_by_mrn. "
+                           "Aucune recherche effectuée ; cela ne prouve pas "
+                           "l'absence de déclaration dans CargoWise")
+            return res
+        for mrn in valides:
+            try:
+                reponse = _json_souple(mcp.appeler_outil(recherche, {'mrn': mrn}))
+                cle = _cle_arrivee(reponse, mrn)
+                if cle in attendus and attendus[cle] != mrn:
+                    raise ValueError("une clé NCT est associée à plusieurs MRN")
+                attendus[cle] = mrn
+            except AutorisationRequise as exc:
+                res.autorisation_requise = True
+                res.avertissements.append(f"{mrn} : autorisation expirée ({exc})")
+            except (RuntimeError, OSError, ValueError) as exc:
+                res.avertissements.append(f"{mrn} : recherche non résolue ({exc})")
+        cles = list(attendus)
+        if not cles:
+            res.message = "Aucune déclaration d'arrivée associée automatiquement ; voir les motifs"
+            return res
 
     outil = mcp.nom_outil(cw.get("outil_entete", []), r"get_ncts|ncts_header")
     if not outil:
@@ -392,11 +464,149 @@ def interroger(cfg: dict, cles: list[str], echo=print) -> ResultatCW:
             res.avertissements.append(f"{cle} : {str(exc)[:160]}")
             continue
         entete = lire_entete_ncts(texte)
+        if cle in attendus and (entete.get('mrn') != attendus[cle]
+                                or entete.get('type_mouvement') != 'A'):
+            res.avertissements.append(f"{cle} : MRN ou mouvement d'arrivée non confirmé par CargoWise")
+            continue
         if entete:
+            if source_bi:
+                entete['source_liaison_bi'] = source_bi
             res.ok = True
             res.entete[cle] = entete
             continue
         res.avertissements.append(f"{cle} : aucun en-tête NCTS renvoyé")
     res.message = (f"en-tête NCTS récupéré ({res.statut})" if res.ok
                    else "aucune donnée NCTS récupérée")
+    return res
+
+
+def _interroger_dossiers_bi(mcp, res, resolution):
+    """Confirme l'eDoc du shipment avant de lire les déclarations liées."""
+    outil = mcp.nom_outil(['cargowise_get_shipment_context'])
+    outil_nct = mcp.nom_outil(['cargowise_get_ncts'])
+    if not outil:
+        res.message = "Dossier trouvé en BI, mais outil de contexte shipment indisponible dans CargoWise"
+        return res
+    contextes, entetes = {}, {}
+    for mrn, dossier in resolution.dossiers.items():
+        try:
+            if dossier not in contextes:
+                contextes[dossier] = _json_souple(mcp.appeler_outil(outil, {'shipmentNumber': dossier}))
+            contexte = contextes[dossier]
+            if not isinstance(contexte, dict) or not isinstance(contexte.get('documents'), list):
+                raise ValueError('contexte shipment non exploitable')
+            documents = [doc for doc in contexte['documents'] if isinstance(doc, dict)
+                         and re.sub(r'(?i)\.pdf$', '', str(doc.get('file_name', ''))) == mrn]
+            if not documents:
+                raise ValueError("le document portant le MRN n'est pas confirmé dans les eDocs CargoWise")
+            res.liaisons_bi[mrn] = {'dossier': dossier, 'source_liaison_bi': resolution.source,
+                                   'document': documents[0]['file_name']}
+            liens = contexte.get('related')
+            if not isinstance(liens, list):
+                raise ValueError('liste des déclarations liées non disponible')
+            cles = list(dict.fromkeys(lien['key'] for lien in liens
+                        if isinstance(lien, dict) and isinstance(lien.get('key'), str)
+                        and re.fullmatch(r'NCT\d{6,10}', lien['key'])))
+            if not cles:
+                res.avertissements.append(f'{mrn} : dossier {dossier} confirmé, aucun lien NCT renvoyé par CargoWise ; DM non récupéré')
+                continue
+            if len(cles) > 20 or not outil_nct:
+                raise ValueError('déclarations liées non vérifiables (outil absent ou plus de 20 liens)')
+            correspondances = []
+            for cle in cles:
+                if cle not in entetes:
+                    entetes[cle] = lire_entete_ncts(mcp.appeler_outil(outil_nct, {'declarationKey': cle}))
+                entete = entetes[cle]
+                if not entete.get('mrn') or not entete.get('type_mouvement'):
+                    raise ValueError('déclaration liée incomplète : association non décidée')
+                if entete['mrn'] == mrn and entete['type_mouvement'] == 'A':
+                    correspondances.append((cle, entete))
+            if len(correspondances) != 1:
+                res.avertissements.append(f'{mrn} : {len(correspondances)} déclarations d’arrivée correspondantes ; DM non récupéré')
+                continue
+            cle, entete = correspondances[0]
+            res.entete[cle] = {**entete, 'dossier': dossier, 'source_liaison_bi': resolution.source}
+        except AutorisationRequise:
+            res.autorisation_requise = True
+            res.avertissements.append(f'{mrn} : autorisation CargoWise expirée')
+        except (RuntimeError, OSError, ValueError):
+            res.avertissements.append(f'{mrn} : lecture du contexte ou des déclarations CargoWise incomplète ; DM non récupéré')
+    res.ok = bool(res.entete)
+    res.message = (f"BI / CargoWise : {len(res.liaisons_bi)} dossier(s) confirmé(s), "
+                   f"{len(res.entete)} déclaration(s) d'arrivée correspondante(s)")
+    return res
+
+
+def _cle_arrivee(reponse, mrn: str) -> str:
+    """Refuse résultats incomplets/ambigus avant toute lecture ou fusion."""
+    if not isinstance(reponse, dict) or reponse.get('complete') is not True:
+        raise ValueError("réponse de recherche incomplète ou invalide")
+    if reponse.get('mrn') != mrn or not isinstance(reponse.get('matches'), list):
+        raise ValueError("réponse de recherche sans MRN exact ou liste de résultats")
+    candidats = reponse['matches']
+    if not candidats:
+        raise ValueError("aucune déclaration d'arrivée trouvée pour ce MRN")
+    if len(candidats) != 1:
+        raise ValueError("plusieurs déclarations candidates : rapprochement à vérifier")
+    candidat = candidats[0]
+    if (not isinstance(candidat, dict) or candidat.get('mrn') != mrn
+            or candidat.get('movement_type') != 'A'
+            or not re.fullmatch(r'NCT\d{6,10}', str(candidat.get('declarationKey', '')))):
+        raise ValueError("candidat sans clé NCT, MRN exact ou mouvement d'arrivée")
+    return candidat['declarationKey']
+
+
+def _interroger_index(cfg, mcp, res, mrns, echo):
+    """Recherche native en premier, BI en repli uniquement pour les MRN absents."""
+    absents = []
+    for mrn in dict.fromkeys(mrns):
+        if not re.fullmatch(r'\d{2}[A-Z]{2}[A-Z0-9]{14}', mrn):
+            res.avertissements.append('Recherche ignorée : MRN incomplet')
+            continue
+        try:
+            # Pas de balayage de centaines de clés dans la boucle de surveillance.
+            reponse = _json_souple(mcp.appeler_outil('cargowise_find_by_mrn',
+                {'mrn': mrn, 'refresh': False, 'include_summary': False}))
+            if not isinstance(reponse, dict) or reponse.get('mrn') != mrn:
+                raise ValueError('réponse sans MRN exact')
+            matches = reponse.get('matches')
+            if not isinstance(matches, list):
+                raise ValueError('liste de candidats absente')
+            if reponse.get('found') is False and not matches:
+                res.avertissements.append(f'{mrn} : absent de l’index NCTS ; cela ne prouve pas son absence dans CargoWise')
+                absents.append(mrn)
+                continue
+            if reponse.get('found') is not True or not matches:
+                raise ValueError('résultat de recherche incohérent')
+            for candidat in matches:
+                if not isinstance(candidat, dict) or candidat.get('mrn') != mrn or candidat.get('movement_type') not in ('A', 'D'):
+                    raise ValueError('candidat incomplet ou MRN différent')
+            arrivees = [c for c in matches if c['movement_type'] == 'A']
+            if len(arrivees) != 1:
+                raise ValueError(f'{len(arrivees)} déclarations d’arrivée candidates : association non décidée')
+            cle = arrivees[0].get('key', '')
+            if not re.fullmatch(r'NCT\d{6,10}', str(cle)):
+                raise ValueError('clé NCT invalide')
+            # Relire la déclaration : le cache de recherche peut être ancien.
+            entete = lire_entete_ncts(mcp.appeler_outil('cargowise_get_ncts', {'key': cle}))
+            if entete.get('mrn') != mrn or entete.get('type_mouvement') != 'A':
+                raise ValueError('MRN ou mouvement d’arrivée non confirmé par la déclaration')
+            if cle in res.entete and res.entete[cle].get('mrn') != mrn:
+                raise ValueError('clé NCT associée à plusieurs MRN')
+            res.entete[cle] = entete
+        except AutorisationRequise:
+            res.autorisation_requise = True
+            res.avertissements.append(f'{mrn} : autorisation CargoWise requise')
+        except (RuntimeError, OSError, ValueError) as exc:
+            res.avertissements.append(f'{mrn} : recherche NCTS non résolue ({exc})')
+    if absents and cfg.get('bi', {}).get('active'):
+        repli_cfg = {**cfg, 'cargowise': {**cfg['cargowise'], '_index_deja_interroge': True}}
+        repli = interroger(repli_cfg, [], echo=echo, mrns=absents)
+        res.liaisons_bi.update(repli.liaisons_bi)
+        res.entete.update(repli.entete)
+        res.avertissements.extend(repli.avertissements)
+        res.autorisation_requise |= repli.autorisation_requise
+    res.ok = bool(res.entete)
+    res.message = (f'CargoWise : {len(res.entete)} déclaration(s) d’arrivée récupérée(s), '
+                   f'{len(res.liaisons_bi)} dossier(s) confirmé(s) via la BI')
     return res

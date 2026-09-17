@@ -24,6 +24,22 @@ from pathlib import Path
 from . import fsutil
 
 DEFAULTS = {
+    "dm": {"active": False, "url": "", "token": "", "operateur": "", "timeout_s": 25},
+    "bi": {
+        "active": False,
+        "url": "",
+        "token": "",
+        "timeout_s": 25,
+        "database": "",
+        "source_database": "",
+        "mode": "direct",
+        "schema": "dbo",
+        "table": "",
+        "colonne_mrn": "",
+        "colonne_nct": "",
+        "colonne_document": "",
+        "colonne_dossier": "",
+    },
     "dossiers": {
         # Relatifs au dossier PROJET si non absolus. La résolution tolère les
         # variantes d'accents (« Dépots » / « Dépôts ») et le NFD macOS.
@@ -50,7 +66,7 @@ DEFAULTS = {
     "ia": {
         # Repli IA (vision) pour les pages que l'extraction déterministe rate.
         # Le traitement n'appelle le modèle que sur les dossiers incomplets :
-        # pdftotext/tesseract restent le chemin normal (rapide, gratuit, hors ligne).
+        # pdftotext/PaddleOCR restent le chemin normal (rapide, gratuit, hors ligne).
         "active": True,
         "base_url": "",           # vide = relais Ollama local puis config de l'agent
         "modele": "",             # vide = modèle configuré pour l'agent
@@ -61,11 +77,10 @@ DEFAULTS = {
         "dpi": 150,               # suffisant pour une page A4 de formulaire
     },
     "binaires": [
-        # Dossiers contenant pdfinfo/pdftotext/pdftoppm/tesseract, si ces outils
+        # Dossiers contenant pdfinfo/pdftotext/pdftoppm, si ces outils
         # ne sont pas dans le PATH (cas fréquent sur Windows : archive poppler
         # extraite dans Program Files). Exemple :
         #   "C:\\Program Files\\poppler\\Library\\bin",
-        #   "C:\\Program Files\\Tesseract-OCR"
         # Sur macOS, laisser vide : Homebrew les met dans le PATH.
     ],
     "cargowise": {
@@ -88,6 +103,22 @@ DEFAULTS = {
 }
 
 _ENV_MAP = {
+    "ULIX_DM_ACTIVE": ("dm", "active"),
+    "ULIX_DM_URL": ("dm", "url"),
+    "ULIX_DM_TOKEN": ("dm", "token"),
+    "ULIX_DM_OPERATEUR": ("dm", "operateur"),
+    "ULIX_BI_ACTIVE": ("bi", "active"),
+    "ULIX_BI_MCP_URL": ("bi", "url"),
+    "ULIX_BI_MCP_TOKEN": ("bi", "token"),
+    "ULIX_BI_DATABASE": ("bi", "database"),
+    "ULIX_BI_SOURCE_DATABASE": ("bi", "source_database"),
+    "ULIX_BI_MODE": ("bi", "mode"),
+    "ULIX_BI_SCHEMA": ("bi", "schema"),
+    "ULIX_BI_TABLE": ("bi", "table"),
+    "ULIX_BI_COLONNE_MRN": ("bi", "colonne_mrn"),
+    "ULIX_BI_COLONNE_NCT": ("bi", "colonne_nct"),
+    "ULIX_BI_COLONNE_DOCUMENT": ("bi", "colonne_document"),
+    "ULIX_BI_COLONNE_DOSSIER": ("bi", "colonne_dossier"),
     "ULIX_DEPOT_UNIQUE": ("dossiers", "depot_unique"),
     "ULIX_DEPOT_MULTIPLE": ("dossiers", "depot_multiple"),
     "ULIX_SORTIE": ("dossiers", "sortie"),
@@ -171,6 +202,8 @@ def _deep_update(base: dict, patch: dict) -> dict:
 
 
 def _coerce(section: str, key: str, value):
+    if section in ("bi", "dm") and key == "active":
+        return str(value).strip().lower() in ("1", "true", "oui", "yes", "on")
     if section == "ia" and key == "active":
         return str(value).strip().lower() in ("1", "true", "oui", "yes", "on")
     if section == "cargowise" and key == "active":

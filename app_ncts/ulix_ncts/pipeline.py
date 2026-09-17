@@ -181,6 +181,8 @@ def analyser_pdf(pdf: Path, cfg: dict, tmp: Path,
     if relus is not None:
         an.dossiers = relus
         an.messages.append("Relecture visuelle enregistrée appliquée (empreinte SHA-256 identique)")
+        if cw_entete:
+            _appliquer_cw(relus, cw_entete)
         for d in relus:
             _croiser(d)
         return an
@@ -243,7 +245,7 @@ def analyser_pdf(pdf: Path, cfg: dict, tmp: Path,
         _croiser(d)
 
     # --- repli IA : uniquement sur les dossiers que le déterministe a ratés ----
-    # Le chemin normal (pdftotext + tesseract) reste la règle ; le modèle n'est
+    # Le chemin normal (pdftotext + PaddleOCR) reste la règle ; le modèle n'est
     # sollicité que sur les cas qu'il est seul à pouvoir lire (scan dégradé,
     # tableau de facture illisible). Un échec IA ne bloque jamais la production.
     if len(dossiers) > 1:
@@ -682,7 +684,7 @@ def _fusionner(dossiers: list[Dossier], cw_dossiers: list[Dossier]) -> list[Doss
 def _appliquer_cw(dossiers: list[Dossier], cw_entete: dict) -> None:
     """Porte l'en-tête NCTS récupéré par MCP sur les dossiers extraits.
 
-    Champs disponibles (serveur IKAMO, vérifiés) : mrn, statut_douane, statut_msg,
+    Champs disponibles (serveur CargoWise, vérifiés) : mrn, statut_douane, statut_msg,
     type_mouvement, phase, arrivee, lrn (= DM), bureau. Le DM est une donnée
     OBLIGATOIRE du document : il est porté dès qu'il est connu.
 
@@ -709,6 +711,8 @@ def _appliquer_cw(dossiers: list[Dossier], cw_entete: dict) -> None:
         d.preuves.append({"methode": "CargoWise", "cle": cle, "champs": dict(trouve)})
         if trouve.get("lrn"):
             d.dm = trouve["lrn"]
+            d.avertissements = [a for a in d.avertissements
+                                if a != "DM / LRN manquant — à vérifier"]
         if trouve.get("mrn"):
             d.mrn = trouve["mrn"]
         if trouve.get("arrivee"):
@@ -824,7 +828,7 @@ def cles_cargowise(pdf: Path, cles_nct: list[str] | None = None) -> list[str]:
     """Clés NCTS à interroger pour ce PDF.
 
     ``cargowise_get_ncts`` n'accepte QUE la clé de déclaration ``NCT…`` (vérifié
-    sur le serveur IKAMO : un MRN, un DM ou un LRN renvoient « no business object
+    sur le serveur CargoWise : un MRN, un DM ou un LRN renvoient « no business object
     matching the criteria »). Cette clé est fournie par l'utilisateur (``--nct``)
     ou reprise du nom de fichier ; à défaut il n'y a rien à interroger.
     """
@@ -881,10 +885,34 @@ def executer(cfg: dict, mode: str | None = None, dry_run: bool = False,
     def analyser_sans_interrompre(pdf, tmp):
         cw_res = None
         try:
-            cw_res = cw_client.interroger(cfg, cles_cargowise(pdf, cles_nct)) if actif_cw else None
-            an = analyser_pdf(pdf, cfg, tmp, cw_res.entete if cw_res and cw_res.ok else None)
+            # Le MRN est établi par la lecture du PDF (ou sa relecture liée au
+            # contenu) avant de rechercher sa déclaration dans CargoWise.
+            an = analyser_pdf(pdf, cfg, tmp)
         except Exception as exc:
             an = Analyse(pdf=pdf, messages=[f"Échec d'analyse : {type(exc).__name__} — {exc}"])
+        if actif_cw and an.dossiers:
+            try:
+                cfg_cw = {**cfg, 'cargowise': {**cfg['cargowise'], 'active': True}}
+                cw_res = cw_client.interroger(cfg_cw, cles_cargowise(pdf, cles_nct),
+                                             mrns=[d.mrn for d in an.dossiers])
+                for d in an.dossiers:
+                    liaison = cw_res.liaisons_bi.get(d.mrn)
+                    if liaison:
+                        if d.dossier and d.dossier not in (d.mrn, liaison['dossier']):
+                            d.blocages.append('Dossier BI / CargoWise différent de la référence dossier extraite')
+                        else:
+                            d.dossier = liaison['dossier']
+                            d.ajouter_entete('Dossier', d.dossier)
+                        d.preuves.append({'methode': 'Liaison BI confirmée par eDoc CargoWise', **liaison})
+                if cw_res.ok:
+                    _appliquer_cw(an.dossiers, cw_res.entete)
+            except Exception as exc:
+                cw_res = cw_client.ResultatCW(message=f"Enrichissement CargoWise en échec : {exc}")
+        if cw_res is not None:
+            etat = ("données récupérées" if cw_res.ok else
+                    "dossier retrouvé, en-tête NCTS absent" if cw_res.liaisons_bi else "non exploité")
+            an.messages.append(f"CargoWise : {etat} — {cw_res.message or cw_res.statut}")
+            an.messages.extend(f"CargoWise : {a}" for a in cw_res.avertissements)
         return an, cw_res
 
     with tempfile.TemporaryDirectory(prefix="ulix_ncts_") as td:
@@ -954,7 +982,8 @@ def _journaliser(an: Analyse, cw_res) -> list[str]:
         if d.ecart:
             lignes.append(f"       ECART : {d.ecart}")
     if cw_res is not None:
-        etat = "OK" if cw_res.ok else "non exploité"
+        etat = ("OK" if cw_res.ok else
+                "dossier retrouvé, en-tête NCTS absent" if cw_res.liaisons_bi else "non exploité")
         lignes.append(f"    CargoWise : {etat} — {cw_res.message or cw_res.statut}")
         for a in cw_res.avertissements:
             lignes.append(f"       ! CW {a}")
@@ -975,6 +1004,36 @@ def _produire(dossiers: list[Dossier], cfg: dict, sortie_dir: Path, horodatage: 
         res.messages.append("MRN présent plusieurs fois dans le lot : rapprochement manuel requis pour éviter le double comptage")
         journal.append(res.messages[-1])
         return []
+    if cfg.get('dm', {}).get('active'):
+        from . import dm, dm_service
+        try:
+            if any(not d.mrn_verifie or d.blocages for d in dossiers):
+                raise dm.ErreurDM('Réservation DM arrêtée : MRN non corroboré ou dossier bloqué')
+            existants = {d.dm.strip() for d in dossiers if d.dm and
+                         not re.search(r'vérifier|compléter|absent|inconnu', d.dm, re.I)}
+            if len(existants) > 1:
+                raise dm.ErreurDM('Plusieurs DM sources dans une annonce : rapprochement requis')
+            attribution = dm_service.Client(cfg['dm']).attribuer(
+                [d.mrn for d in dossiers], next(iter(existants), ''), simulation=dry_run)
+            valeur = attribution.get('dm', '')
+            if valeur:
+                dm.numero(valeur)  # Une réponse invalide ne doit jamais atteindre le document.
+                for d in dossiers:
+                    d.dm = valeur
+                    d.avertissements = [a for a in d.avertissements if not a.startswith('DM / LRN')]
+                    d.avertissements.append(f'DM {valeur} : registre central, numéro conservé aux réimpressions')
+                    d.preuves.append({'source': 'registre_dm', 'dm': valeur,
+                                      'mrns': [x.mrn for x in dossiers]})
+                journal.append(f'DM central : {valeur} — ' + ('réutilisé' if attribution.get('reutilise') else 'réservé'))
+            else:
+                journal.append('DM : simulation sans réservation de numéro')
+                if not dry_run:
+                    raise dm.ErreurDM('Le service DM n’a renvoyé aucun numéro')
+        except dm.ErreurDM as exc:
+            message = f'DM : {exc} ; lot conservé, aucun document généré'
+            res.messages.append(message)
+            journal.append(message)
+            return []
     controles = [{"mrn": d.mrn, "motifs": qualite.evaluer(d), "preuves": d.preuves,
                   "lectures_ia": d.lectures_ia} for d in dossiers]
     a_revoir = any(c["motifs"] for c in controles)

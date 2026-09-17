@@ -23,6 +23,10 @@ htmlcov/
 *.pfx
 .ulix_ncts*.json
 /app_ncts/config.json
+/config.json
+**/config.json.bak*
+**/config.json.backup*
+**/.mcp.json
 
 # Documents métier, extractions et sorties : restent sur le poste
 /Archive/
@@ -32,6 +36,7 @@ htmlcov/
 /output/
 /dist/
 /build/dist/
+/build/ocr_models/
 /tmp/
 /app_ncts/relectures/
 /app_ncts/tests/fixtures/corpus_reference.json
@@ -56,3 +61,7 @@ htmlcov/
 Prets_a_remettre/
 A_verifier/
 *_validation.json
+
+# Registre central DM et journaux SQLite : données métier
+*.sqlite3
+*.sqlite3-*

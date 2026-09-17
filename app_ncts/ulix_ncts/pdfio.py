@@ -4,15 +4,13 @@ Le pipeline « cheap-first » du skill est respecté : on lit d'abord la couche
 texte (instantanée, gratuite) et on ne paie l'OCR que sur les pages sans texte
 exploitable ou au verdict ambigu, et seulement sur les zones utiles.
 
-Aucun paquet Python externe n'est requis : pdftotext / pdftoppm / pdfinfo /
-tesseract (poppler + tesseract) et Pillow si présent (repli sans Pillow : crops
-via -x -y -W -H de pdftoppm).
+Poppler fournit le texte et le rendu ; PaddleOCR assure la lecture et
+l'orientation locales des scans. Pillow prépare les zones utiles.
 """
 
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -41,12 +39,11 @@ def _run(cmd, **kw) -> subprocess.CompletedProcess:
     """Lance un binaire externe en lui transmettant l'environnement adapté.
 
     Le chemin du binaire est résolu ici, en un seul point : sur Windows, poppler
-    et tesseract sont fréquemment installés hors du PATH, et tous les appels du
+    est fréquemment installé hors du PATH, et tous les appels du
     module passent par cette fonction.
 
     `env` est indispensable sur Windows : il porte `PYTHONUTF8` (encodage des
-    sorties) et `TESSDATA_PREFIX` (modèles de langue de tesseract, que certains
-    installateurs ne positionnent pas).
+    sorties).
     """
     if cmd and isinstance(cmd[0], str):
         resolu = plateforme.chemin_binaire(cmd[0])
@@ -55,14 +52,14 @@ def _run(cmd, **kw) -> subprocess.CompletedProcess:
     kw.setdefault("env", plateforme.environnement_sous_processus())
     kw.setdefault("timeout", 120)
     cp = subprocess.run(cmd, capture_output=True, **kw)
-    if cp.returncode and not ("--psm" in cmd and "0" in cmd):
+    if cp.returncode:
         detail = cp.stderr.decode("utf-8", "replace") if isinstance(cp.stderr, bytes) else str(cp.stderr)
         raise RuntimeError(f"{Path(cmd[0]).name} a échoué : {detail[:300]}")
     return cp
 
 
 def _txt(cp: subprocess.CompletedProcess) -> str:
-    # les binaires poppler/tesseract peuvent sortir dans l'encodage local
+    # les binaires poppler peuvent sortir dans l'encodage local
     # (cp1252 sur Windows) : on décode en tolérant, jamais en levant.
     for encodage in ("utf-8", None):
         try:
@@ -168,23 +165,21 @@ def redresser(image: Path) -> Path:
 
 
 def ocr(image: Path, langue: str = "eng", psm: int = 6) -> str:
-    cp = _run(["tesseract", str(image), "-", "-l", langue, "--psm", str(psm)])
-    return _txt(cp)
+    """PaddleOCR multilingue. langue/psm restent acceptés pour compatibilité."""
+    from . import ocr_paddle
+    return ocr_paddle.lire(image)
 
 
 def orientation(image: Path) -> int:
-    out = _txt(_run(["tesseract", str(image), "-", "--psm", "0"]))
-    m = re.search(r"Rotate:\s*(\d+)", out)
-    return int(m.group(1)) % 360 if m else 0
+    from . import ocr_paddle
+    return ocr_paddle.orientation(image)
 
 
 def ocr_bandeau_haut(pdf: Path, page: int, dpi: int, langue: str = "eng",
                      fraction: float = 0.22) -> str:
     """OCR du seul bandeau haut (titre + case TYPE), 1 passe d'orientation."""
     if Image is None:
-        png = rendre_zone_pt(pdf, page, dpi, Path(tempfile.mkdtemp()),
-                             "band", 0, 0, 600, 842 * fraction)
-        return ocr(png, langue, 6) if png else ""
+        raise OutilManquant("Pillow est requis pour préparer les images PaddleOCR")
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
         png = rendre_page_png(pdf, page, dpi, d)
@@ -193,7 +188,7 @@ def ocr_bandeau_haut(pdf: Path, page: int, dpi: int, langue: str = "eng",
         img = Image.open(png)
         rot = orientation(png)
         if rot:
-            img = img.rotate(rot, expand=True) if rot in (90, 270) else img
+            img = img.rotate(rot, expand=True)
         bande = img.crop((0, 0, img.width, int(img.height * fraction)))
         p = d / "bande.png"
         bande.save(p)

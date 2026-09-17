@@ -67,7 +67,7 @@ def _commande() -> str:
 
 
 def _brancher_binaires(cfg: dict) -> None:
-    """Renseigne `ULIX_BINAIRES` depuis la config (dossiers de poppler/tesseract).
+    """Renseigne `ULIX_BINAIRES` depuis la config (dossiers de poppler).
 
     Sur Windows, ces outils sont souvent installés hors du PATH (archive extraite
     dans Program Files). Le lanceur transmet donc les dossiers déclarés avant que
@@ -95,12 +95,15 @@ def verifier_environnement(cfg: dict) -> list[str]:
     manquants = pdfio.verifier_outils()
     if manquants:
         if plateforme.est_windows():
-            remede = ("installer poppler et tesseract, puis renseigner leurs dossiers "
+            remede = ("installer poppler, puis renseigner son dossier "
                       "dans config.json (section « binaires ») ou dans la variable "
                       "ULIX_BINAIRES — voir INSTALLATION-WINDOWS.md")
         else:
-            remede = "installer poppler et tesseract, ex. `brew install poppler tesseract`"
+            remede = "installer poppler, ex. `brew install poppler`"
         problemes.append("binaires absents : " + ", ".join(manquants) + "  (" + remede + ")")
+    from ulix_ncts import ocr_paddle
+    if ocr_paddle.verifier_installation():
+        problemes.append('PaddleOCR absent — relancer Installer.command ou Installer.cmd')
     try:
         import reportlab  # noqa: F401
     except Exception:
@@ -212,6 +215,10 @@ def main(argv: list[str] | None = None) -> int:
                          "(répétable ; à défaut, la clé est reprise du nom de fichier)")
     ap.add_argument("--statut-cargowise", action="store_true",
                     help="vérifier la connexion et l'autorisation CargoWise, puis quitter")
+    ap.add_argument("--statut-bi", action="store_true",
+                    help="vérifier le MCP BI et rechercher les colonnes MRN / NCT, puis quitter")
+    ap.add_argument("--statut-ocr", action="store_true",
+                    help="charger PaddleOCR et tester lecture/orientation sur une image fictive")
     ap.add_argument("--cle-cargowise", default="",
                     help="clé de déclaration à utiliser pour le diagnostic "
                          "--statut-cargowise (ou fournir --nct)")
@@ -230,6 +237,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sortie", type=Path, help="dossier des annonces générées")
     ap.add_argument("--sans-couleur", action="store_true", help="sortie sans codes couleur")
     ap.add_argument("--format", choices=["docx", "pdf"], help="format de sortie (Word par défaut)")
+    dm_options = ap.add_mutually_exclusive_group()
+    dm_options.add_argument("--serveur-dm", action="store_true", help="démarrer le service central DM")
+    dm_options.add_argument("--activer-dm", metavar="DERNIER_SISA", help="bascule réelle, une seule fois, sur le serveur DM")
+    dm_options.add_argument("--statut-dm", action="store_true", help="consulter le service DM")
+    dm_options.add_argument("--dm-pmp", choices=["oui", "non"], help="modifier manuellement le préfixe d’une annonce enregistrée")
+    ap.add_argument("--registre-dm", type=Path, help="base SQLite locale du serveur DM (chemin explicite requis)")
+    ap.add_argument("--hote-dm", default="127.0.0.1", help="interface d’écoute du service DM")
+    ap.add_argument("--port-dm", type=int, default=8766)
+    ap.add_argument("--mrn-dm", action="append", default=[], help="MRN de l’annonce pour --dm-pmp (répéter pour un lot)")
+    ap.add_argument("--operateur-dm", default="", help="nom de l’opérateur pour la trace DM")
     args = ap.parse_args(argv)
 
     plateforme.preparer_console()
@@ -255,6 +272,60 @@ def main(argv: list[str] | None = None) -> int:
         cfg["cargowise"]["active"] = True
     if args.autoriser:
         cfg["cargowise"]["autorisation_interactive"] = True
+
+    if args.serveur_dm or args.activer_dm or args.statut_dm or args.dm_pmp:
+        from ulix_ncts import dm, dm_service
+        import json
+        try:
+            if args.simulation and (args.activer_dm or args.dm_pmp):
+                raise dm.ErreurDM("--simulation ne permet pas de modifier le registre DM")
+            operateur = args.operateur_dm or cfg['dm'].get('operateur', '')
+            if args.serveur_dm or args.activer_dm:
+                if not args.registre_dm:
+                    raise dm.ErreurDM("--registre-dm requis : utiliser toujours la base centrale sur le disque du serveur")
+                if args.activer_dm and not operateur.strip():
+                    raise dm.ErreurDM("--operateur-dm requis pour la bascule")
+                registre = dm.Registre(args.registre_dm)
+                if args.activer_dm:
+                    print(json.dumps(registre.activer(args.activer_dm, operateur), ensure_ascii=False, indent=2))
+                else:
+                    with dm_service.serveur(registre, cfg['dm'].get('token', ''),
+                                           (args.hote_dm, args.port_dm)) as service:
+                        print(f"Service DM : {args.hote_dm}:{args.port_dm} — registre {args.registre_dm}", flush=True)
+                        print(json.dumps(registre.statut(), ensure_ascii=False), flush=True)
+                        try:
+                            service.serve_forever()
+                        except KeyboardInterrupt:
+                            pass
+            else:
+                client = dm_service.Client(cfg['dm'])
+                resultat = (client.appeler('/prefixe', {'mrns': args.mrn_dm,
+                    'pmp': args.dm_pmp == 'oui', 'operateur': operateur})
+                    if args.dm_pmp else client.appeler('/statut'))
+                print(json.dumps(resultat, ensure_ascii=False, indent=2))
+            return 0
+        except (dm.ErreurDM, OSError) as exc:
+            print(f"DM : {exc}")
+            return 10
+
+    if args.statut_ocr:
+        from ulix_ncts import ocr_paddle
+        try:
+            print(ocr_paddle.autotest())
+            return 0
+        except ocr_paddle.ErreurOCR as exc:
+            print(f'OCR : {exc}')
+            return 9
+
+    if args.statut_bi:
+        import json
+        from ulix_ncts import bi_client
+        try:
+            print(json.dumps(bi_client.diagnostiquer(cfg), ensure_ascii=False, indent=2))
+            return 0
+        except bi_client.ErreurBI as exc:
+            print(f"BI : {exc}")
+            return 8
 
     # --- dossiers de travail prêts à recevoir les dépôts -----------------------
     faits = preparer_projet(cfg, RACINE)
@@ -324,6 +395,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  sortie         : {cfg['dossiers']['sortie']}")
         print(f"  CargoWise      : {'activé' if cfg['cargowise']['active'] else 'désactivé'}"
               + ("   (simulation)" if args.simulation else ""))
+        print(f"  BI (MRN → NCT) : {'activée' if cfg['bi']['active'] else 'désactivée'}")
+        print("  DM central     : " + ("configuré — état via --statut-dm" if cfg.get("dm", {}).get("active") else "désactivé — préparation avant bascule"))
         print(f"  IA (repli)     : "
               + (f"{VERT}activée{RAZ}" if ia.disponible(cfg)
                  else f"{GRIS}désactivée{RAZ}"))
@@ -372,6 +445,8 @@ def _afficher(res, args) -> None:
         print(f"  {an.pdf.name}")
         print(f"    pages transit retenues : {transit}")
         print(f"    pages écartées         : {ecartees}")
+        for message in an.messages:
+            print(f"    {message}")
         for d in an.dossiers:
             conf = f"{VERT}haute{RAZ}" if d.confiance == "haute" else f"{JAUNE}{d.confiance}{RAZ}"
             print(f"    dossier {d.mrn or '?'} — DM {d.dm or '?'} — {len(d.articles)} article(s) "
@@ -439,6 +514,8 @@ def _surveiller(cfg: dict, args, mode: str | None) -> int:
     print(f"  dépôt multiple : {depot_multiple}")
     print(f"  sortie         : {cfg['dossiers']['sortie']}")
     print(f"  CargoWise      : {'activé' if cfg['cargowise']['active'] else 'désactivé'}")
+    print(f"  BI (MRN → NCT) : {'activée' if cfg['bi']['active'] else 'désactivée'}")
+    print("  DM central     : " + ("configuré — état via --statut-dm" if cfg.get("dm", {}).get("active") else "désactivé — préparation avant bascule"))
     print(f"  IA (repli)     : "
           + (f"{VERT}activée{RAZ}" if ia.disponible(cfg)
              else f"{GRIS}désactivée{RAZ}"))

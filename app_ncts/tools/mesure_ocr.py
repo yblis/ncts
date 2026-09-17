@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mesure la place réelle de tesseract (OCR) dans le traitement.
+"""Mesure la place réelle de PaddleOCR (OCR) dans le traitement.
 
 Instrumente `ulix_ncts.pdfio.ocr` pour compter et chronométrer chaque appel, puis
 lance un traitement en simulation (aucun fichier écrit, rien n'est archivé).
@@ -42,7 +42,7 @@ print()
 print("=" * 62)
 print(f"documents traités          : {len(res.analyses)}")
 print(f"pages analysées            : {pages}")
-print(f"appels OCR (tesseract)     : {_stat['appels']}")
+print(f"appels OCR (PaddleOCR)     : {_stat['appels']}")
 print(f"pages traitées par OCR     : "
       f"{pages and 100 * _stat['appels'] / pages:.1f} % des pages")
 print(f"temps passé en OCR         : {_stat['secondes']:.1f} s")

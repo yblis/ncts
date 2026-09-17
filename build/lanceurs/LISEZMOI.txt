@@ -2,7 +2,7 @@ ULIX — annonce d'arrivée NCTS
 =============================
 
 Ce dossier est prêt à l'emploi : aucune installation de Python, poppler ou
-tesseract n'est nécessaire avec le paquet Windows.
+PaddleOCR n'est nécessaire avec le paquet Windows.
 
   Dépôts unique/         déposer ici 1 PDF  -> 1 annonce d'arrivée
   Dépôts multiple/       déposer ici N PDF  -> 1 annonce d'arrivée unique

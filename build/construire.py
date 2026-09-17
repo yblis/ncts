@@ -9,14 +9,14 @@ lance aussi à la main :
 
     cd hermes
     python3 build/construire.py --version 1.2.0                # paquet du système courant
-    python3 build/construire.py --poppler DIR --tesseract DIR  # Windows : binaires livrés
-    python3 build/construire.py --embarquer-brew               # macOS : poppler/tesseract Homebrew
+    python3 build/construire.py --poppler DIR  # Windows : binaires livrés
+    python3 build/construire.py --embarquer-brew               # macOS : poppler Homebrew
 
 Sorties dans `dist/` :
 
     Windows : ULIX-NCTS-<v>-windows-portable.zip  + ULIX-NCTS-<v>-windows-installateur.exe (Inno Setup)
     macOS   : ULIX-NCTS-<v>-macos.zip             + ULIX-NCTS-<v>-macos.pkg
-    Linux   : ULIX-NCTS-<v>-linux-portable.tar.gz + ulix-ncts_<v>_amd64.deb (dépend de poppler-utils, tesseract-ocr)
+    Linux   : ULIX-NCTS-<v>-linux-portable.tar.gz + ulix-ncts_<v>_amd64.deb (dépend de poppler-utils)
 
 Disposition livrée (identique à `hermes/` en développement) :
 
@@ -24,7 +24,7 @@ Disposition livrée (identique à `hermes/` en développement) :
     ├── Dépôts unique/  Dépôts multiple/  Annonces d'arrivées/  Archive/
     ├── .env (créé au premier lancement depuis app/.env.example)
     ├── Lancer.*  Surveiller.*  LISEZMOI.txt
-    └── app/            <- exécutable + _internal/ (Python, reportlab, gabarit) + bin/ (poppler, tesseract)
+    └── app/            <- exécutable + _internal/ (Python, reportlab, gabarit) + bin/ (poppler)
 """
 
 from __future__ import annotations
@@ -71,6 +71,8 @@ def systeme() -> str:
 # ---------------------------------------------------------------------------
 
 def construire_executable(dist: Path) -> Path:
+    lancer([sys.executable, "-m", "ulix_ncts.ocr_paddle", "--exporter",
+            BUILD / "ocr_models"], cwd=APP)
     travail = dist / "_pyinstaller"
     shutil.rmtree(travail, ignore_errors=True)
     lancer([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
@@ -84,11 +86,11 @@ def construire_executable(dist: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# 2. binaires externes (poppler, tesseract)
+# 2. binaires externes (poppler)
 # ---------------------------------------------------------------------------
 
 def copier_dossier_binaires(source: Path, cible: Path, nom: str) -> None:
-    """Copie un dossier d'installation Windows (poppler `Library/bin`, `Tesseract-OCR`)."""
+    """Copie un dossier d'installation Windows (poppler `Library/bin`)."""
     source = Path(source)
     if (source / "Library" / "bin").is_dir():
         source = source / "Library" / "bin"
@@ -129,16 +131,16 @@ def _resoudre_dylib(dep: str, origine: Path, prefix_brew: Path) -> Path | None:
 
 
 def embarquer_macos(app: Path) -> None:
-    """Rend poppler et tesseract de Homebrew autonomes dans app/bin/.
+    """Rend poppler de Homebrew autonomes dans app/bin/.
 
     Chaque exécutable est copié avec la fermeture transitive de ses dylib
     (otool -L), les chemins sont réécrits en @executable_path/lib puis les
     fichiers sont resignés ad hoc (obligatoire sur Apple Silicon après
-    install_name_tool). tessdata (eng, osd) est copié à côté de tesseract.
+    install_name_tool). Les modèles PaddleOCR sont embarqués par PyInstaller.
     """
     prefix_brew = Path(subprocess.run(["brew", "--prefix"], capture_output=True, text=True,
                                       check=True).stdout.strip())
-    groupes = {"poppler": BINAIRES_POPPLER, "tesseract": ("tesseract",)}
+    groupes = {"poppler": BINAIRES_POPPLER}
     for groupe, noms in groupes.items():
         cible = app / "bin" / groupe
         lib = cible / "lib"
@@ -187,22 +189,6 @@ def embarquer_macos(app: Path) -> None:
             subprocess.run(["codesign", "--force", "--sign", "-", str(fichier)], check=True, capture_output=True)
         dire(f"{groupe} : {len(binaires)} exécutable(s), {len(copies)} bibliothèque(s) embarquées")
 
-    # modèles tesseract
-    tessdata_src = None
-    for cand in (prefix_brew / "share" / "tessdata", prefix_brew / "opt" / "tesseract" / "share" / "tessdata"):
-        if cand.is_dir():
-            tessdata_src = cand
-            break
-    if tessdata_src is None:
-        raise SystemExit("tessdata introuvable dans Homebrew")
-    tessdata = app / "bin" / "tesseract" / "tessdata"
-    tessdata.mkdir(parents=True, exist_ok=True)
-    for nom in ("eng.traineddata", "osd.traineddata", "pdf.ttf"):
-        if (tessdata_src / nom).exists():
-            shutil.copy2(tessdata_src / nom, tessdata / nom)
-    for sous in ("configs", "tessconfigs"):
-        if (tessdata_src / sous).is_dir():
-            shutil.copytree(tessdata_src / sous, tessdata / sous, dirs_exist_ok=True)
     # fontconfig : configuration minimale vers les polices système (sans Homebrew)
     fonts = app / "bin" / "poppler" / "fonts.conf"
     fonts.write_text(
@@ -215,17 +201,14 @@ def verifier_binaires_embarques(app: Path) -> None:
     """Chaque binaire livré doit démarrer depuis le dossier assemblé."""
     suffixe = ".exe" if systeme() == "windows" else ""
     env = dict(os.environ)
-    tess = app / "bin" / "tesseract"
-    if (tess / "tessdata").is_dir():
-        env["TESSDATA_PREFIX"] = str(tess / "tessdata")
     if (app / "bin" / "poppler" / "fonts.conf").exists():
         env["FONTCONFIG_FILE"] = str(app / "bin" / "poppler" / "fonts.conf")
-    for groupe, noms in (("poppler", BINAIRES_POPPLER), ("tesseract", ("tesseract",))):
+    for groupe, noms in (("poppler", BINAIRES_POPPLER),):
         for nom in noms:
             exe = app / "bin" / groupe / (nom + suffixe)
             if not exe.is_file():
                 raise SystemExit(f"binaire embarqué absent : {exe}")
-            cp = subprocess.run([str(exe), "-v" if nom != "tesseract" else "--version"],
+            cp = subprocess.run([str(exe), "-v"],
                                 capture_output=True, text=True, env=env, timeout=60)
             sortie = (cp.stdout + cp.stderr).strip().splitlines()
             dire(f"{nom} : {sortie[0] if sortie else 'aucune sortie'}")
@@ -367,9 +350,8 @@ def main(argv=None) -> int:
     ap.add_argument("--version", default=None, help="version affichée (défaut : ulix_ncts.__version__)")
     ap.add_argument("--sortie", type=Path, default=RACINE / "dist", help="dossier de sortie (défaut : dist/)")
     ap.add_argument("--poppler", type=Path, help="Windows : dossier Library/bin de poppler à livrer")
-    ap.add_argument("--tesseract", type=Path, help="Windows : dossier Tesseract-OCR à livrer (avec tessdata)")
     ap.add_argument("--embarquer-brew", action="store_true",
-                    help="macOS : embarquer poppler/tesseract installés par Homebrew")
+                    help="macOS : embarquer poppler installés par Homebrew")
     ap.add_argument("--sans-paquet", action="store_true", help="assembler le dossier sans zip/installateur")
     ap.add_argument("--exiger-installateur", action="store_true",
                     help="échouer si l'outil d'installateur (ISCC, pkgbuild, dpkg-deb) manque")
@@ -386,8 +368,6 @@ def main(argv=None) -> int:
     app = construire_executable(dist)
     if args.poppler:
         copier_dossier_binaires(args.poppler, app / "bin" / "poppler", "poppler")
-    if args.tesseract:
-        copier_dossier_binaires(args.tesseract, app / "bin" / "tesseract", "tesseract")
     if args.embarquer_brew:
         if os_cible != "macos":
             raise SystemExit("--embarquer-brew n'a de sens que sur macOS")
@@ -402,6 +382,8 @@ def main(argv=None) -> int:
     essai = dist / "_essai_projet"
     shutil.rmtree(essai, ignore_errors=True)
     lancer([exe, "--projet", essai, "--preparer"])
+    # Exerce les dépendances natives et les poids embarqués, pas seulement l'import.
+    lancer([exe, "--statut-ocr"])
     for nom in DOSSIERS_TRAVAIL:
         if not (essai / nom).is_dir():
             raise SystemExit(f"--preparer n'a pas créé {essai / nom}")

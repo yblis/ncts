@@ -34,7 +34,7 @@ Ils sont ignorés par Git, comme tout `*.pdf`, `*.docx`, `*.png`, `relectures/`,
 Tout se lance depuis `app_ncts/` avec le venv local (`.venv/bin/python3` sur macOS,
 `.venv\Scripts\python.exe` sur Windows). `Installer.command` / `Installer.cmd` créent ce venv
 et installent reportlab, Pillow, python-docx, zxing-cpp ; poppler (`pdfinfo`, `pdftotext`,
-`pdftoppm`) et tesseract doivent être installés sur le poste.
+`pdftoppm`) doivent être installés sur le poste. PaddleOCR et ses modèles sont installés via Installer.command.
 
 ```bash
 cd app_ncts
@@ -74,7 +74,7 @@ cd app_ncts
 `build/construire.py` produit l'exécutable figé (PyInstaller, mode dossier, spec
 `build/ulix_ncts.spec`) puis assemble le dossier « ULIX NCTS » livré aux équipes :
 dépôts vides, lanceurs, `.env` initial, `app/` (exécutable + gabarit + `bin/` poppler
-et tesseract). `.github/workflows/construire.yml` l'exécute sur les trois systèmes et
+et les modèles PaddleOCR). `.github/workflows/construire.yml` l'exécute sur les trois systèmes et
 publie une Release sur un tag `v*`. Détails dans `build/DISTRIBUTION.md`.
 
 En mode figé (`plateforme.est_fige()`), le dossier du CODE est celui de l'exécutable,
@@ -130,7 +130,7 @@ Chaîne « cheap-first » : déterministe d'abord, IA seulement en repli, jamais
    (jamais en `--simulation`/`--garder`, jamais pour un lot bloqué).
 
 Modules transverses : `config` (défauts < `config.json` < variables `ULIX_*`/`CW_*`),
-`pdfio` (point de passage unique vers poppler/tesseract, rendu `pdftoppm -singlefile`),
+`pdfio` (point de passage unique vers poppler/PaddleOCR, rendu `pdftoppm -singlefile`),
 `plateforme` (binaires hors PATH sous Windows, venv, console UTF-8/ANSI, `PYTHONUTF8`
 pour le sous-processus de rendu), `cw_client` + `oauth` (MCP HTTP streamable, PKCE,
 jetons dans `~/.ulix_ncts*.json` en droits 600), `fsutil` (résolution tolérante des noms).

@@ -1,0 +1,8 @@
+reportlab>=4.0
+python-docx>=1.1
+Pillow>=10.1
+zxing-cpp>=2.2,<4
+tzdata>=2024.1
+paddleocr==3.7.0
+paddlepaddle==3.3.1
+paddlex==3.7.2

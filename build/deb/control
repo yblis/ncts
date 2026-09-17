@@ -4,7 +4,7 @@ Section: office
 Priority: optional
 Architecture: amd64
 Installed-Size: {TAILLE}
-Depends: poppler-utils, tesseract-ocr, tesseract-ocr-eng
+Depends: poppler-utils
 Maintainer: ULIX SWISS SA <it@ulixgroup.com>
 Homepage: https://github.com/ulix/hermes
 Description: Annonce d'arrivée NCTS depuis les PDF de transit douanier

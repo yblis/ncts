@@ -55,8 +55,8 @@ def main() -> int:
     if plateforme.est_windows():
         verifier(any("poppler" in d.lower() for d in dossiers),
                  "poppler cherché dans Program Files")
-        verifier(any("tesseract" in d.lower() for d in dossiers),
-                 "tesseract cherché dans Program Files")
+        verifier("tesseract" not in plateforme.BINAIRES,
+                 "OCR PaddleOCR : aucun binaire tesseract requis")
     else:
         print("        (hors Windows : les emplacements Program Files sont ignorés)")
 

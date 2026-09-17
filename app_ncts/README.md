@@ -19,6 +19,19 @@ Word ne sont pas réimportées dans les données JSON de l'application.
 
 # Annonce d'arrivée NCTS — génération automatique
 
+Le [processus métier d'arrivée et la recette de bascule CW](PROCESSUS-ARRIVEE.md)
+intègrent le retour utilisateur du 17 septembre 2026 : premier échange avec un
+DM, document envoyé au lieu agréé, contrôle physique puis second échange dans CW.
+Ce guide distingue les fonctions existantes des adaptations restant à réaliser
+avant l'échéance opérationnelle annoncée du 25 septembre 2026.
+
+Le client lit le MRN avant l'appel IKAMO et peut utiliser le
+[MCP BI pour retrouver la clé NCT](BI-MRN.md), puis vérifier la déclaration
+d'arrivée dans IKAMO avant de reprendre le DM. La connexion SQL et le mapping
+table/colonnes doivent être opérationnels. Sans BI activée, le client utilise le
+[contrat de recherche IKAMO par MRN](CONTRAT-IKAMO-MRN.md) si le serveur l'expose ;
+cette dernière fonction n'est pas disponible sur le MCP IKAMO vérifié.
+
 Script qui scanne les PDF déposés, lit les documents de transit (TR1/TR2/TCH,
 TAD UE, formulaires CargoWise) et génère le **document d'arrivée NCTS** : PDF
 2 pages au minimum, page 1 « Annonce d'arrivée », page 2 « Liste d'inventaire » avec le
@@ -49,7 +62,7 @@ et exclues de Git. Les tests publiés utilisent des données fictives.
 
 1. **Première fois sur un poste** : double-cliquer **`Installer.command`**
    (crée l'environnement Python local et installe reportlab + Pillow ; installe
-   aussi poppler et tesseract via Homebrew si besoin).
+   aussi poppler via Homebrew si besoin).
 2. **À chaque traitement** : déposer les PDF dans `Dépots unique/` et/ou
    `Dépots multiple/`, puis double-cliquer **`Lancer.command`**.
 3. Les annonces sont écrites dans **`Annonces d'arrivées/`** ; les PDF traités
@@ -186,10 +199,10 @@ d'une annonce d'un coup d'œil.
 
 ## Repli IA (lecture des pages en échec)
 
-L'extraction est **déterministe par défaut** : `pdftotext` puis `tesseract`
-(gratuit, hors ligne, reproductible). C'est ce qui traite l'essentiel des
-documents — l'OCR ne pèse que ~11 % du temps de traitement sur les 11 PDF de
-référence.
+La couche texte est lue en priorité avec `pdftotext`. Pour les scans ou les
+bandeaux ambigus, PaddleOCR effectue l'orientation et la lecture localement.
+Les modèles sont téléchargés à l'installation puis réutilisés hors ligne.
+Voir [le moteur OCR](OCR.md) pour les versions, le diagnostic et les limites.
 
 Un **repli IA** (vision) prend le relais **uniquement** sur les dossiers que le
 déterministe n'a pas su renseigner — typiquement :
@@ -258,7 +271,7 @@ dans `A_verifier/`. L’incident est consigné au rapport interne.
 1. Copier le dossier `app_ncts` complet (avec son sous-dossier `Documentation`) à côté des
    dépôts (l'arborescence attendue : voir plus bas).
 2. Double-cliquer **`Installer.command`** une fois : il installe poppler,
-   tesseract et l'environnement Python local (aucun droit administrateur).
+   PaddleOCR et l'environnement Python local (aucun droit administrateur).
 3. Enregistrer la clé IA : `lancer.py --cle-ia VOTRE_CLE` (en Terminal, ou en
    passant la variable `OLLAMA_API_KEY`).
 4. Double-cliquer **`Surveiller.command`** et laisser la fenêtre ouverte.
@@ -367,7 +380,7 @@ les données et appeler le gabarit du skill, jamais de rendu ad hoc.
 ## Prérequis
 
 - Python 3.11 ou plus récent (installé pour vous par `Installer.command`).
-- `poppler` et `tesseract` (`brew install poppler tesseract`) pour la lecture
+- `poppler` (`brew install poppler`) pour la lecture
   des scans.
 - Accès en lecture/écriture aux dossiers `Dépots unique`, `Dépots multiple`,
   `Annonces d'arrivées` et `Archive`.
@@ -516,3 +529,13 @@ et N380 des désignations, en conservant les décimales des masses.
 Un TCH avec plusieurs waybills ne reçoit plus la description d'un seul envoi pour
 l'ensemble du poids déclaré. Le repli IA ne contourne pas ce garde-fou. Les relectures privées sont liées à l'empreinte de leurs PDF sources. Cela
 ne garantit pas l'exactitude de nouveaux scans ni celle des données sources.
+
+## Numérotation DM
+
+Le registre central et les commandes de bascule sont prêts, désactivés par défaut. Voir [DM.md](DM.md) pour la préparation du serveur, le dernier numéro Sisa à confirmer et l’ajout manuel de PMP. Aucun numéro n’est réservé avant activation explicite.
+
+## MCP CargoWise direct
+
+Le client prend en charge le MCP CargoWise avec paramètres imbriqués dans `params`, recherche `cargowise_find_by_mrn` et statuts structurés `{code, description}`. La recherche dans l’index MRN précède le repli BI (liaison PDF → dossier confirmé par ses eDocs). Une déclaration candidate doit être unique, d’arrivée, puis confirmée par relecture de son MRN.
+
+La surveillance consulte l’index existant (`refresh=false`) : son actualisation doit être assurée côté serveur, y compris les anciennes déclarations modifiées. Une absence dans cet index n’est pas une preuve d’absence dans CargoWise. Le connecteur enrichit les données en lecture seule ; l’attribution des nouveaux DM dépend séparément du registre central et de sa bascule. L’URL privée reste dans `config.json`.

@@ -6,7 +6,7 @@ rem Windows : il cree un environnement Python local (.venv) et y installe
 rem reportlab + Pillow, necessaires a la lecture des PDF et a la generation du
 rem document.
 rem
-rem Les binaires poppler et tesseract sont detectes automatiquement.
+rem Les binaires poppler sont detectes automatiquement.
 rem
 rem NOTE : ce fichier est volontairement en ASCII sans accents.
 
@@ -94,7 +94,7 @@ rem --- 5. Installation des bibliotheques Python -------------------------------
 
 echo Installation des bibliotheques Python...
 
-".venv\Scripts\python.exe" -m pip install reportlab python-docx pillow pdf2image pytesseract "zxing-cpp>=2.2,<4"
+".venv\Scripts\python.exe" -m pip install -r requirements.txt
 
 if errorlevel 1 (
     echo.
@@ -110,7 +110,7 @@ rem --- 6. Verification --------------------------------------------------------
 
 echo Verification de l'environnement...
 
-".venv\Scripts\python.exe" -c "import reportlab, PIL, pdf2image, pytesseract; print('Bibliotheques Python : OK')"
+".venv\Scripts\python.exe" -c "import reportlab, PIL, paddleocr, paddle; print('Bibliotheques Python : OK')"
 
 if errorlevel 1 (
     echo.
@@ -119,12 +119,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+".venv\Scripts\python.exe" -m ulix_ncts.ocr_paddle
+if errorlevel 1 (
+    echo Preparation PaddleOCR en echec.
+    pause
+    exit /b 1
+)
+
 rem Use the same discovery logic as the application, including config.json.
 ".venv\Scripts\python.exe" -c "import lancer; c=lancer.cfgmod.charger(lancer.RACINE); lancer._brancher_binaires(c); e=lancer.verifier_environnement(c); print('\n'.join(e) if e else 'Environnement : OK'); raise SystemExit(bool(e))"
 if errorlevel 1 (
-    echo Installation incomplete. Verifiez poppler, tesseract et config.json.
+    echo Installation incomplete. Verifiez poppler, PaddleOCR et config.json.
     echo Poppler : winget install -e --id oschwartz10612.Poppler
-    echo Tesseract : winget install -e --id UB-Mannheim.TesseractOCR
     pause
     exit /b 1
 )

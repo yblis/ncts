@@ -12,6 +12,27 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from ulix_ncts import extract, render, config, relecture, pipeline
 
 class AnnonceOriginale(unittest.TestCase):
+    def test_relecture_enrichie_uniquement_si_mrn_cw_identique(self):
+        from ulix_ncts.classify import Verdict
+        mrn = '26CH07STTEST000002'
+        for mrn_cw in (mrn, '26CH07STTEST000005'):
+            with self.subTest(mrn_cw=mrn_cw), tempfile.TemporaryDirectory() as td:
+                pdf = Path(td) / 'source.pdf'
+                pdf.write_bytes(b'source fictive')
+                dossier = extract.Dossier(mrn=mrn, articles=[
+                    extract.Article(designation='Article relu', brut='0 kg', colis='0 PC')])
+                with patch.object(pipeline, 'classer_pages', return_value=[
+                        Verdict(page=1, famille='TRANSIT_TAD', mrn=mrn)]), \
+                     patch.object(relecture, 'charger', return_value=[dossier]):
+                    an = pipeline.analyser_pdf(pdf, config.DEFAULTS, Path(td),
+                        {'NCT00000001': {'mrn': mrn_cw, 'lrn': 'DM TEST'}})
+                self.assertEqual(an.dossiers[0].dm, 'DM TEST' if mrn_cw == mrn else '')
+                self.assertEqual(an.dossiers[0].mrn, mrn)
+                self.assertEqual(an.dossiers[0].articles[0].brut, '0 kg')
+                self.assertEqual(an.dossiers[0].articles[0].colis, '0 PC')
+                self.assertEqual(any(p.get('methode') == 'CargoWise'
+                                     for p in dossier.preuves), mrn_cw == mrn)
+
     def test_annonce_unique_trois_mrn_un_code_original(self):
         ds=[extract.Dossier(mrn=m,annonce_originale=True,codes_annonce=['260101-GTAN-DeMo1']) for m in
             ['26CH07STTEST000002','26CH07STTEST000005','26CH07STTEST000007']]

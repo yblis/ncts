@@ -1,7 +1,7 @@
 """Repli IA (vision) — lecture des pages que l'extraction déterministe rate.
 
 Principe « cheap-first » du skill : le chemin normal reste `pdftotext` +
-`tesseract` (déterministe, ~11 % du temps de traitement, gratuit, hors ligne).
+PaddleOCR (local, gratuit, hors ligne une fois les modèles téléchargés).
 Ce module n'est appelé **que** pour les dossiers que le déterministe n'a pas su
 renseigner — typiquement :
 

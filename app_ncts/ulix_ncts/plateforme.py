@@ -3,10 +3,10 @@
 Le pipeline est identique sur les deux systèmes ; ce module isole les seuls
 points qui changent réellement :
 
-* **Les binaires externes** (poppler : pdfinfo/pdftotext/pdftoppm, et tesseract).
+* **Les binaires externes** (poppler : pdfinfo/pdftotext/pdftoppm).
   Sur macOS, Homebrew les place dans le PATH. Sur Windows, l'archive de poppler
-  est souvent extraite dans Program Files **sans être ajoutée au PATH**, et
-  tesseract s'installe dans son propre dossier : `shutil.which` échoue alors que
+  est souvent extraite dans Program Files **sans être ajoutée au PATH** :
+  `shutil.which` échoue alors que
   l'outil est bel et bien installé. On cherche donc aussi dans les emplacements
   habituels.
 * **L'interpréteur du venv** : ``.venv/bin/python3`` sur macOS,
@@ -26,20 +26,17 @@ import shutil
 import sys
 from pathlib import Path
 
-# binaires requis par le pipeline (poppler + tesseract)
-BINAIRES = ("pdfinfo", "pdftotext", "pdftoppm", "tesseract")
+# binaires requis par le pipeline (poppler)
+BINAIRES = ("pdfinfo", "pdftotext", "pdftoppm")
 
 # Emplacements d'installation habituels sur Windows, hors PATH. Les installateurs
-# (winget, installeur .exe de tesseract, archive de poppler) n'ajoutent pas
+# (winget, archive de poppler) n'ajoutent pas
 # toujours le dossier au PATH : sans cette recherche, l'outil est « introuvable »
 # alors qu'il est installé.
 _DIRS_WINDOWS = (
     r"C:\Program Files\poppler\Library\bin",
     r"C:\Program Files (x86)\poppler\Library\bin",
     r"C:\poppler\Library\bin",
-    r"C:\Program Files\Tesseract-OCR",
-    r"C:\Program Files (x86)\Tesseract-OCR",
-    r"C:\Tesseract-OCR",
 )
 # archives extraites manuellement : poppler-24.08.0, poppler-23.11.0…
 _MOTIFS_WINDOWS = (
@@ -59,7 +56,7 @@ def est_fige() -> bool:
     """Vrai quand le programme tourne depuis un exécutable PyInstaller.
 
     Dans ce mode il n'y a ni ``lancer.py`` ni venv : le code, reportlab et le
-    gabarit sont embarqués, et poppler/tesseract peuvent être livrés dans un
+    gabarit sont embarqués, et poppler peut être livré dans un
     sous-dossier ``bin/`` à côté de l'exécutable.
     """
     return bool(getattr(sys, "frozen", False))
@@ -85,16 +82,16 @@ def dossier_ressources() -> Path:
 
 
 def dossiers_binaires_embarques() -> list[str]:
-    """Sous-dossiers ``bin/`` livrés avec l'exécutable (poppler, tesseract).
+    """Sous-dossiers ``bin/`` livrés avec l'exécutable (poppler).
 
     Disposition produite par ``build/construire.py`` :
-    ``app/bin/poppler/`` et ``app/bin/tesseract/`` (avec ``tessdata/``).
+    ``app/bin/poppler/``.
     On les fouille aussi en mode source, pour tester la disposition sans figer.
     """
     base = dossier_application() / "bin"
     if not base.is_dir():
         return []
-    out = [str(base / "poppler"), str(base / "tesseract"), str(base)]
+    out = [str(base / "poppler"), str(base)]
     for extra in ("Library/bin", "poppler/Library/bin"):
         cand = base / extra
         if cand.is_dir():
@@ -121,8 +118,7 @@ def dossiers_supplementaires() -> list[str]:
         out += sorted(glob.glob(motif), reverse=True)
     local = os.environ.get("LOCALAPPDATA", "")
     if local:
-        out += [str(Path(local) / "Programs" / "Tesseract-OCR"),
-                str(Path(local) / "Programs" / "poppler" / "Library" / "bin")]
+        out += [str(Path(local) / "Programs" / "poppler" / "Library" / "bin")]
     return out
 
 
@@ -265,16 +261,13 @@ def environnement_sous_processus() -> dict:
     une exception, le script sort en erreur et le PDF n'est jamais produit — un
     rendu qui fonctionne sur macOS échouerait donc sur Windows sans ce réglage.
 
-    `TESSDATA_PREFIX` est déduit du binaire tesseract trouvé : certains
-    installateurs Windows ne le positionnent pas, et tesseract refuse alors de
-    démarrer (« Failed loading language 'eng' »).
     """
     env = dict(os.environ)
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     if est_fige():
         # PyInstaller positionne LD_LIBRARY_PATH sur ses propres bibliothèques :
-        # un poppler/tesseract du système chargerait alors la mauvaise libstdc++.
+        # un poppler du système chargerait alors la mauvaise libstdc++.
         # On restitue l'environnement d'origine pour les sous-processus.
         for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
             orig = os.environ.get(var + "_ORIG")
@@ -288,14 +281,4 @@ def environnement_sous_processus() -> dict:
         fonts = dossier_application() / "bin" / "poppler" / "fonts.conf"
         if fonts.is_file():
             env["FONTCONFIG_FILE"] = str(fonts)
-    if "TESSDATA_PREFIX" not in env:
-        tess = chemin_binaire("tesseract")
-        if tess:
-            dossier = Path(tess).parent
-            for cand in (dossier / "tessdata",
-                         dossier.parent / "share" / "tessdata",
-                         dossier.parent / "tessdata"):
-                if cand.is_dir():
-                    env["TESSDATA_PREFIX"] = str(cand)
-                    break
     return env

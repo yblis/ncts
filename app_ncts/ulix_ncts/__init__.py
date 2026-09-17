@@ -10,4 +10,4 @@ Modules :
   pipeline   — orchestration : dépôt unique / dépôt multiple -> annonces
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"

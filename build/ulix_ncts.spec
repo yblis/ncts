@@ -10,6 +10,7 @@ et zxing-cpp sont collectés en entier : polices, gabarits .docx et extension
 compilée compris.
 """
 from pathlib import Path
+import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs, copy_metadata
 
@@ -30,10 +31,17 @@ for paquet in ("imagesize", "opencv-contrib-python", "pyclipper", "pypdfium2",
                "python-bidi", "shapely"):
     datas += copy_metadata(paquet, recursive=True)
 binaries = collect_dynamic_libs("paddle")
+if sys.platform.startswith("linux"):
+    # Paddle charge certaines dépendances CPU par leur seul nom (dlopen).
+    # Le bootloader cherche dans _internal, pas dans paddle/libs : y placer
+    # aussi ces bibliothèques, y compris les .so versionnées.
+    binaries += collect_dynamic_libs("paddle", destdir=".",
+                                    search_patterns=["lib*.so", "lib*.so.*"])
 
 hiddenimports = (collect_submodules("reportlab")
                  + collect_submodules("ulix_ncts")
-                 + ["zxingcpp", "PIL.Image", "docx", "runpy", "paddleocr", "paddle"])
+                 + ["zxingcpp", "PIL.Image", "docx", "runpy", "paddleocr", "paddle",
+                    "unittest", "unittest.mock"])
 
 a = Analysis(
     [str(APP / "lancer.py")],
@@ -43,7 +51,8 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["tkinter", "unittest", "pytest", "PyInstaller"],
+    # Paddle utilise unittest à l'exécution sur Windows : ne pas l'exclure.
+    excludes=["tkinter", "pytest", "PyInstaller"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

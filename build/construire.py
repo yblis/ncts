@@ -244,7 +244,7 @@ def assembler(app_source: Path, dist: Path, os_cible: str) -> Path:
     shutil.copytree(app_source, dossier / "app", symlinks=True)
     shutil.copy2(RACINE / ".env.example", dossier / "app" / ".env.example")
     shutil.copy2(BUILD / "lanceurs" / "LISEZMOI.txt", dossier / "LISEZMOI.txt")
-    lanceurs = {"windows": ("Lancer.cmd", "Surveiller.cmd"),
+    lanceurs = {"windows": ("Lancer.cmd", "Surveiller.cmd", "Surveillance.cmd"),
                 "macos": ("Lancer.command", "Surveiller.command"),
                 "linux": ()}[os_cible]
     for nom in lanceurs:

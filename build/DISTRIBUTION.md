@@ -26,6 +26,7 @@ ULIX NCTS/
 ├── .env                    clé IA, modèle (créé depuis app/.env.example, jamais écrasé)
 ├── Lancer.cmd|.command     traitement à la demande
 ├── Surveiller.cmd|.command guetteur : déposer un PDF suffit
+├── Surveillance.cmd        Windows : surveillance en arrière-plan (--kill, --statut, --journal)
 ├── LISEZMOI.txt
 └── app/
     ├── ulix-ncts(.exe)     exécutable PyInstaller

@@ -43,7 +43,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Tasks]
 Name: "bureau"; Description: "Créer un raccourci « ULIX NCTS » sur le Bureau"; GroupDescription: "Raccourcis :"
-Name: "demarrage"; Description: "Lancer la surveillance des dépôts à l'ouverture de session"; GroupDescription: "Raccourcis :"; Flags: unchecked
+Name: "demarrage"; Description: "Lancer la surveillance des dépôts en arrière-plan à l'ouverture de session"; GroupDescription: "Raccourcis :"; Flags: unchecked
 
 [Dirs]
 Name: "{app}\Dépôts unique"; Flags: uninsneveruninstall
@@ -55,6 +55,7 @@ Name: "{app}\Archive"; Flags: uninsneveruninstall
 Source: "{#Source}\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Source}\Lancer.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Source}\Surveiller.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Source}\Surveillance.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Source}\LISEZMOI.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 ; réglages du poste : créé une seule fois, jamais écrasé ni désinstallé
 Source: "{#Source}\app\.env.example"; DestDir: "{app}"; DestName: ".env"; Flags: onlyifdoesntexist uninsneveruninstall
@@ -62,9 +63,11 @@ Source: "{#Source}\app\.env.example"; DestDir: "{app}"; DestName: ".env"; Flags:
 [Icons]
 Name: "{autoprograms}\ULIX NCTS - Surveiller les dépôts"; Filename: "{app}\Surveiller.cmd"; WorkingDir: "{app}"; Comment: "Déposer un PDF suffit : l'annonce se génère seule"
 Name: "{autoprograms}\ULIX NCTS - Traiter maintenant"; Filename: "{app}\Lancer.cmd"; WorkingDir: "{app}"
+Name: "{autoprograms}\ULIX NCTS - Surveillance en arrière-plan"; Filename: "{app}\Surveillance.cmd"; WorkingDir: "{app}"; Comment: "Surveillance invisible, journal dans Surveillance.log"
+Name: "{autoprograms}\ULIX NCTS - Arrêter la surveillance"; Filename: "{app}\Surveillance.cmd"; Parameters: "--kill"; WorkingDir: "{app}"
 Name: "{autoprograms}\ULIX NCTS - Ouvrir le dossier"; Filename: "{app}"
 Name: "{autodesktop}\ULIX NCTS"; Filename: "{app}"; Tasks: bureau
-Name: "{userstartup}\ULIX NCTS - Surveillance"; Filename: "{app}\Surveiller.cmd"; WorkingDir: "{app}"; Tasks: demarrage
+Name: "{userstartup}\ULIX NCTS - Surveillance"; Filename: "{app}\Surveillance.cmd"; WorkingDir: "{app}"; Tasks: demarrage
 
 [Run]
 Filename: "{app}\app\ulix-ncts.exe"; Parameters: "--preparer"; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; StatusMsg: "Préparation des dossiers de dépôt…"

@@ -16,6 +16,13 @@ Utilisation
   Surveiller  : laisser la fenêtre ouverte ; déposer un PDF suffit.
   Lancer      : traiter une fois ce qui est déposé, puis fermer.
 
+Windows, sans fenêtre (Surveillance.cmd) :
+  Surveillance.cmd            démarre la surveillance en arrière-plan
+  Surveillance.cmd --kill     l'arrête
+  Surveillance.cmd --statut   dit si elle tourne
+  Surveillance.cmd --journal  affiche la fin de Surveillance.log
+  Les options supplémentaires (ex. --cargowise) sont transmises au programme.
+
 Repli IA (facultatif)
 ---------------------
 Ouvrir « .env » avec le Bloc-notes et renseigner OLLAMA_API_KEY. Le modèle par

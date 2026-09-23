@@ -22,6 +22,11 @@ pour configurer le poste. Le fichier local est ignoré par Git. Sans ce fichier,
 l’application utilise ses paramètres par défaut. Aucun accès CargoWise n’est
 préconfiguré dans la version publique.
 
+## Déploiement Docker sur Linux
+
+Pour faire tourner la surveillance dans un conteneur et monter uniquement les
+données métier depuis un partage SMB, suivre le [guide de déploiement Docker](DEPLOIEMENT-DOCKER.md).
+
 ## Contenu public et privé
 
 Le dépôt contient le code, les scripts de rendu et des tests fictifs. Les

@@ -2,8 +2,8 @@
 # ULIX — annonce d'arrivée NCTS : surveillance automatique des dépôts.
 #
 # Double-cliquer ce fichier : le programme surveille les dossiers
-# « Dépots unique » et « Dépots multiple ». Dès qu'un PDF y est déposé, il est
-# traité et l'annonce d'arrivée apparaît dans « Annonces d'arrivées ».
+# « data/Dépôts unique » et « data/Dépôts multiple ». Dès qu'un PDF y est
+# déposé, il est traité et l'annonce apparaît dans « data/Annonces d'arrivées ».
 # Rien d'autre à faire : l'utilisateur n'a plus qu'à déposer ses fichiers.
 #
 # Laisser cette fenêtre ouverte (elle peut rester en arrière-plan).

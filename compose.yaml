@@ -1,0 +1,48 @@
+services:
+  ncts:
+    image: ulix-ncts:local
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "${PUID:-1000}:${PGID:-1000}"
+    working_dir: /opt/ulix-ncts
+    command: ["--surveiller", "--sans-couleur"]
+    env_file:
+      - .env
+    environment:
+      HOME: /tmp
+      PYTHONUTF8: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      TZ: "${TZ:-Europe/Paris}"
+      ULIX_PROJET: /opt/ulix-ncts
+      ULIX_OCR_MODELES: /opt/ulix-ncts/ocr_models
+      ULIX_REQUIRE_SMB: "${ULIX_REQUIRE_SMB:-1}"
+    volumes:
+      - type: bind
+        source: ${ULIX_DATA_DIR:-/mnt/ulix-ncts-data}
+        target: /opt/ulix-ncts/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.env
+        target: /opt/ulix-ncts/.env
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=2g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

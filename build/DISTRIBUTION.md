@@ -19,10 +19,11 @@ Disposition du dossier livré, identique à `hermes/` en développement :
 
 ```
 ULIX NCTS/
-├── Dépôts unique/          1 PDF  -> 1 annonce
-├── Dépôts multiple/        N PDF  -> 1 annonce
-├── Annonces d'arrivées/    Prets_a_remettre/, A_verifier/, data/
-├── Archive/
+├── data/
+│   ├── Dépôts unique/          1 PDF  -> 1 annonce
+│   ├── Dépôts multiple/        N PDF  -> 1 annonce
+│   ├── Annonces d'arrivées/    Prets_a_remettre/, A_verifier/, data/
+│   └── Archive/
 ├── .env                    clé IA, modèle (créé depuis app/.env.example, jamais écrasé)
 ├── Lancer.cmd|.command     traitement à la demande
 ├── Surveiller.cmd|.command guetteur : déposer un PDF suffit

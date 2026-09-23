@@ -1,7 +1,7 @@
 """Guetteur de dépôts — rend l'outil transparent pour les utilisateurs.
 
-L'utilisateur dépose ses PDF dans « Dépots unique » ou « Dépots multiple » et le
-traitement part tout seul : plus rien à lancer. C'est le mode d'exploitation
+L'utilisateur dépose ses PDF dans `data/Dépôts unique/` ou
+`data/Dépôts multiple/` ; le traitement part tout seul. C'est le mode d'exploitation
 documenté pour la mise en place chez les utilisateurs.
 
 Principes retenus (et pourquoi) :
@@ -20,7 +20,7 @@ Principes retenus (et pourquoi) :
   traités que lorsque le lot est stable ; un lot d'un seul fichier reste traité
   (l'utilisateur peut ne déposer qu'un complément), le rapport le signalant.
 * **Aucun doublon.** Un fichier déjà traité (archivé) n'est pas retraité : les
-  PDF partent dans `Archive/` après traitement, et le guetteur ne regarde que les
+  PDF partent dans `data/Archive/` après traitement, et le guetteur ne regarde que les
   dossiers de dépôt.
 """
 

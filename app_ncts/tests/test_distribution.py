@@ -71,7 +71,7 @@ class PreparationProjet(unittest.TestCase):
             faits = lancer.preparer_projet(cfg, racine)
             self.assertEqual(len(faits), 5, faits)
             for nom in ("Dépôts unique", "Dépôts multiple", "Annonces d'arrivées", "Archive"):
-                self.assertTrue((projet / nom).is_dir(), nom)
+                self.assertTrue((projet / "data" / nom).is_dir(), nom)
             self.assertEqual((projet / ".env").read_text(encoding="utf-8"), "ULIX_IA_MODELE=exemple\n")
             (projet / ".env").write_text("OLLAMA_API_KEY=secret\n", encoding="utf-8")
             self.assertEqual(lancer.preparer_projet(cfg, racine), [])
@@ -86,7 +86,7 @@ class PreparationProjet(unittest.TestCase):
                     patch("builtins.print"):
                 self.assertEqual(lancer.main(["--preparer", "--sans-couleur"]), 0)
                 ex.assert_not_called()
-            noms = sorted(d.name for d in projet.iterdir() if d.is_dir())
+            noms = sorted(d.name for d in (projet / "data").iterdir() if d.is_dir())
             self.assertEqual(len(noms), 4, noms)
             self.assertTrue(any(n.startswith("D") and n.endswith("unique") for n in noms), noms)
             self.assertTrue((projet / ".env").is_file())

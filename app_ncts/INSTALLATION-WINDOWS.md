@@ -10,10 +10,11 @@ ce qui change sur Windows.
 
    ```
    hermes\
-   ├── Dépots unique\        <- les fichiers à traiter sont déposés ici
-   ├── Dépots multiple\
-   ├── Annonces d'arrivées\
-   ├── Archive\
+   ├── data\
+   │   ├── Dépôts unique\   <- les fichiers à traiter sont déposés ici
+   │   ├── Dépôts multiple\
+   │   ├── Annonces d'arrivées\
+   │   └── Archive\
    └── app_ncts\             <- le programme
        └── Documentation\   <- les scripts de rendu
    ```
@@ -116,7 +117,7 @@ lanceurs.
 
 - Les fichiers de lancement sont `.cmd` sur Windows et `.command` sur macOS :
   les deux coexistent dans le dossier, chacun peut ignorer ceux de l'autre.
-- `Archive/`, `Annonces d'arrivées/` et les dossiers de dépôt gardent les mêmes
+- Sous `data/`, `Archive/`, `Annonces d'arrivées/` et les dossiers de dépôt gardent les mêmes
   noms. Les noms accentués sont acceptés (le programme résout les variantes
   d'accents), mais des noms sans accents (`Depots unique`, `Annonces d'arrivees`)
   évitent toute mauvaise surprise en ligne de commande.

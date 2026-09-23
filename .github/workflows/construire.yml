@@ -148,7 +148,7 @@ jobs:
           sudo apt-get install -y -q ./dist/ulix-ncts_*_amd64.deb
           # code 2 = « aucun PDF à traiter » : attendu sur un projet vide
           ulix-ncts --projet "$RUNNER_TEMP/projet" --simulation --sans-couleur || test $? -eq 2
-          test -d "$RUNNER_TEMP/projet/Dépôts unique"
+          test -d "$RUNNER_TEMP/projet/data/Dépôts unique"
           test -f "$RUNNER_TEMP/projet/.env"
           dpkg -I dist/ulix-ncts_*_amd64.deb
       - uses: actions/upload-artifact@v4

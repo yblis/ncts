@@ -21,7 +21,8 @@ Sorties dans `dist/` :
 Disposition livrée (identique à `hermes/` en développement) :
 
     ULIX NCTS/
-    ├── Dépôts unique/  Dépôts multiple/  Annonces d'arrivées/  Archive/
+    ├── data/
+    │   ├── Dépôts unique/  Dépôts multiple/  Annonces d'arrivées/  Archive/
     ├── .env (créé au premier lancement depuis app/.env.example)
     ├── Lancer.*  Surveiller.*  LISEZMOI.txt
     └── app/            <- exécutable + _internal/ (Python, reportlab, gabarit) + bin/ (poppler)
@@ -44,7 +45,8 @@ APP = RACINE / "app_ncts"
 BUILD = RACINE / "build"
 NOM = "ULIX NCTS"
 BINAIRES_POPPLER = ("pdfinfo", "pdftotext", "pdftoppm")
-DOSSIERS_TRAVAIL = ("Dépôts unique", "Dépôts multiple", "Annonces d'arrivées", "Archive")
+DOSSIERS_TRAVAIL = tuple(f"data/{nom}" for nom in (
+    "Dépôts unique", "Dépôts multiple", "Annonces d'arrivées", "Archive"))
 
 
 def dire(msg: str) -> None:
@@ -236,10 +238,11 @@ def assembler(app_source: Path, dist: Path, os_cible: str) -> Path:
     if os_cible == "windows":
         # le paquet portable est autonome : dépôts vides prêts à recevoir les fichiers
         for nom in DOSSIERS_TRAVAIL:
-            (dossier / nom).mkdir()
-            (dossier / nom / "Déposer les PDF ici.txt").write_text(
+            emplacement = dossier / nom
+            emplacement.mkdir(parents=True)
+            (emplacement / "Déposer les PDF ici.txt").write_text(
                 "Ce dossier reçoit les PDF à traiter ; ce fichier peut être supprimé.\n"
-                if nom.startswith("Dépots") else
+                if Path(nom).name.startswith("Dépôts") else
                 "Dossier géré par le programme ; ce fichier peut être supprimé.\n", encoding="utf-8")
         shutil.copy2(RACINE / ".env.example", dossier / ".env")
     return dossier

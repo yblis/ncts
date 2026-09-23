@@ -4,10 +4,10 @@ ULIX — annonce d'arrivée NCTS
 Ce dossier est prêt à l'emploi : aucune installation de Python, poppler ou
 PaddleOCR n'est nécessaire avec le paquet Windows.
 
-  Dépôts unique/         déposer ici 1 PDF  -> 1 annonce d'arrivée
-  Dépôts multiple/       déposer ici N PDF  -> 1 annonce d'arrivée unique
-  Annonces d'arrivées/   les documents générés (Prets_a_remettre/, A_verifier/)
-  Archive/               les PDF sources après traitement réussi
+  data/Dépôts unique/       déposer ici 1 PDF  -> 1 annonce d'arrivée
+  data/Dépôts multiple/     déposer ici N PDF  -> 1 annonce d'arrivée unique
+  data/Annonces d'arrivées/ les documents générés (Prets_a_remettre/, A_verifier/)
+  data/Archive/             les PDF sources après traitement réussi
   .env                   réglages du poste : clé IA Ollama, modèle
   app/                   le programme (ne rien modifier)
 

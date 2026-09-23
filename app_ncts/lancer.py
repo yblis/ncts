@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """Annonce d'arrivée NCTS — génération depuis les PDF déposés.
 
-Le script scanne « Dépots unique » et « Dépots multiple » (à côté de ce
-fichier), classe les pages des PDF, lit les documents de transit et produit les
+Le script scanne « data/Dépôts unique » et « data/Dépôts multiple » (à côté du
+dossier du programme), classe les pages des PDF, lit les documents de transit et produit les
 annonces d'arrivée (PDF 2 pages : annonce + liste d'inventaire, cadre CONTRÔLE
-3140) dans « Annonces d'arrivées ».
+3140) dans « data/Annonces d'arrivées ».
 
 Règle métier :
-  * Dépots unique   : 1 fichier PDF  -> 1 annonce d'arrivée ;
-  * Dépots multiple : N fichiers PDF -> 1 annonce d'arrivée unique.
+  * data/Dépôts unique   : 1 fichier PDF  -> 1 annonce d'arrivée ;
+  * data/Dépôts multiple : N fichiers PDF -> 1 annonce d'arrivée unique.
 
 Usage :
     python3 lancer.py                 # traite les deux dépôts
-    python3 lancer.py --unique        # seulement « Dépots unique »
-    python3 lancer.py --multiple      # seulement « Dépots multiple »
+    python3 lancer.py --unique        # seulement « data/Dépôts unique »
+    python3 lancer.py --multiple      # seulement « data/Dépôts multiple »
     python3 lancer.py --simulation    # analyse tout, n'écrit aucun PDF
     python3 lancer.py --garder        # ne pas déplacer les PDF traités
     python3 lancer.py --cargowise     # active l'enrichissement via le MCP CargoWise
     python3 lancer.py --depot-unique <dossier> ...   # chemins explicites
 
 Ce script ne fait que des lectures ; le seul écrit est la génération des PDF
-dans le dossier de sortie (et l'archivage des PDF traités dans « Archive/ »
+dans le dossier de sortie (et l'archivage des PDF traités dans « data/Archive/ »
 sauf option --garder ou config trait.  deplacer_traite=false).
 
 Rendu : le PDF est produit par le script déterministe du skill ULIX
@@ -193,12 +193,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Génère les annonces d'arrivée NCTS à partir des PDF déposés.",
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--unique", action="store_true", help="traiter seulement « Dépots unique »")
-    ap.add_argument("--multiple", action="store_true", help="traiter seulement « Dépots multiple »")
+    ap.add_argument("--unique", action="store_true", help="traiter seulement data/Dépôts unique")
+    ap.add_argument("--multiple", action="store_true", help="traiter seulement data/Dépôts multiple")
     ap.add_argument("--simulation", "--dry-run", dest="simulation", action="store_true",
                     help="analyser sans écrire de PDF ni archiver")
     ap.add_argument("--garder", action="store_true",
-                    help="ne pas déplacer les PDF traités dans Archive/")
+                    help="ne pas déplacer les PDF traités dans data/Archive/")
     ap.add_argument("--surveiller", action="store_true",
                     help="guetter les dépôts et traiter chaque lot automatiquement "
                          "(mode transparent : l'utilisateur dépose, tout part seul)")

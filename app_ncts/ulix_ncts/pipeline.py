@@ -2,8 +2,8 @@
 
 Règles métier appliquées :
 
-  * ``Dépots unique``   : 1 fichier PDF  -> 1 annonce d'arrivée ;
-  * ``Dépots multiple`` : N fichiers PDF -> 1 annonce d'arrivée unique
+  * ``data/Dépôts unique``   : 1 fichier PDF  -> 1 annonce d'arrivée ;
+  * ``data/Dépôts multiple`` : N fichiers PDF -> 1 annonce d'arrivée unique
     (toutes les références du dossier figurent sur le document et dans le cadre
     CONTRÔLE).
 
@@ -1116,7 +1116,7 @@ def _slug(valeur: str) -> str:
 
 
 def _archiver(depots: list[Path], cfg: dict, journal: list[str]) -> list[Path]:
-    """Déplace les PDF traités dans le dossier Archive/ (racine du projet)."""
+    """Déplace les PDF traités dans data/Archive/ (relatif au projet)."""
     if not any(p.is_file() for p in depots):
         return []
     archive = fsutil.dossier(Path(cfg["_projet"]), cfg["dossiers"].get("archive", "Archive"),

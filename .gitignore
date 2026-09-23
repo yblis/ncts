@@ -21,6 +21,8 @@ htmlcov/
 *.key
 *.p12
 *.pfx
+.smbcredentials
+.smbcredentials.*
 .ulix_ncts*.json
 /app_ncts/config.json
 /config.json
@@ -33,6 +35,7 @@ htmlcov/
 /Annonces d'arrivées/
 /D*pots unique/
 /D*pots multiple/
+/data/
 /output/
 /dist/
 /build/dist/

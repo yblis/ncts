@@ -46,10 +46,11 @@ Name: "bureau"; Description: "Créer un raccourci « ULIX NCTS » sur le Bureau"
 Name: "demarrage"; Description: "Lancer la surveillance des dépôts en arrière-plan à l'ouverture de session"; GroupDescription: "Raccourcis :"; Flags: unchecked
 
 [Dirs]
-Name: "{app}\Dépôts unique"; Flags: uninsneveruninstall
-Name: "{app}\Dépôts multiple"; Flags: uninsneveruninstall
-Name: "{app}\Annonces d'arrivées"; Flags: uninsneveruninstall
-Name: "{app}\Archive"; Flags: uninsneveruninstall
+Name: "{app}\data"; Flags: uninsneveruninstall
+Name: "{app}\data\Dépôts unique"; Flags: uninsneveruninstall
+Name: "{app}\data\Dépôts multiple"; Flags: uninsneveruninstall
+Name: "{app}\data\Annonces d'arrivées"; Flags: uninsneveruninstall
+Name: "{app}\data\Archive"; Flags: uninsneveruninstall
 
 [Files]
 Source: "{#Source}\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs

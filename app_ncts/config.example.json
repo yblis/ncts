@@ -17,10 +17,10 @@
     "colonne_dossier": ""
   },
   "dossiers": {
-    "depot_unique": "Dépots unique",
-    "depot_multiple": "Dépots multiple",
-    "sortie": "Annonces d'arrivées",
-    "archive": "Archive"
+    "depot_unique": "data/Dépôts unique",
+    "depot_multiple": "data/Dépôts multiple",
+    "sortie": "data/Annonces d'arrivées",
+    "archive": "data/Archive"
   },
   "traitement": {
     "deplacer_traite": true,

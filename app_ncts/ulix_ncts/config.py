@@ -3,7 +3,7 @@
 Repères de chemin :
   * ``racine`` (``_racine``)  = dossier du script ``lancer.py`` (code) ;
   * ``projet`` (``_projet``)  = son parent = dossier métier qui contient
-    « Dépots unique », « Dépots multiple », « Annonces d'arrivées », « Archive ».
+    ``data/`` et ses dossiers de travail.
   * ``Documentation/`` se trouve dans la racine du code, à côté de ``lancer.py``.
 
 Les dossiers de travail sont résolus relativement au dossier PROJET (et non au
@@ -43,13 +43,13 @@ DEFAULTS = {
     "dossiers": {
         # Relatifs au dossier PROJET si non absolus. La résolution tolère les
         # variantes d'accents (« Dépots » / « Dépôts ») et le NFD macOS.
-        "depot_unique": "Dépôts unique",
-        "depot_multiple": "Dépôts multiple",
-        "sortie": "Annonces d'arrivées",
-        "archive": "Archive",
+        "depot_unique": "data/Dépôts unique",
+        "depot_multiple": "data/Dépôts multiple",
+        "sortie": "data/Annonces d'arrivées",
+        "archive": "data/Archive",
     },
     "traitement": {
-        "deplacer_traite": True,          # archiver les PDF traités dans Archive/
+        "deplacer_traite": True,          # archiver les PDF traités dans data/Archive/
         "ecrire_data_json": True,         # écrire le data.json à côté du PDF
         "ecrire_rapport": True,           # écrire le rapport de passage (texte)
         "dpi_ocr": 200,                   # dpi pour les rendus/OCR

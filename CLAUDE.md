@@ -23,9 +23,9 @@ Deux points d'entrée coexistent :
 ## Disposition des dossiers (importante)
 
 Le dossier racine du dépôt est le **dossier PROJET métier** ; `app_ncts/` est le dossier
-du CODE. Les dossiers de travail (`Dépots unique/`, `Dépots multiple/`,
-`Annonces d'arrivées/`, `Archive/`) sont résolus relativement au PROJET, c'est-à-dire au
-parent de `lancer.py`, avec tolérance des accents et du NFD macOS (`fsutil.resoudre`).
+du CODE. Les dossiers de travail (`Dépôts unique/`, `Dépôts multiple/`,
+`Annonces d'arrivées/`, `Archive/`) se trouvent sous `data/`, relativement au PROJET
+(parent de `lancer.py`), avec tolérance des accents et du NFD macOS (`fsutil.resoudre`).
 Ils sont ignorés par Git, comme tout `*.pdf`, `*.docx`, `*.png`, `relectures/`,
 `config.json`, `corpus_reference.json` et le reste de `Documentation/`.
 
@@ -47,7 +47,7 @@ cd app_ncts
 # Traitement
 .venv/bin/python3 lancer.py                    # traite les deux dépôts
 .venv/bin/python3 lancer.py --simulation       # analyse sans écrire ni archiver
-.venv/bin/python3 lancer.py --garder           # ne pas déplacer les PDF dans Archive/
+.venv/bin/python3 lancer.py --garder           # ne pas déplacer les PDF dans data/Archive/
 .venv/bin/python3 lancer.py --format pdf       # circuit PDF strict (Word par défaut)
 .venv/bin/python3 lancer.py --surveiller       # guetteur : traite chaque lot déposé
 .venv/bin/python3 lancer.py --cargowise --nct NCT00000202   # enrichissement MCP
@@ -126,7 +126,7 @@ Chaîne « cheap-first » : déterministe d'abord, IA seulement en repli, jamais
    (`render.trouver_gabarit` le cherche depuis l'application ou la racine). `word.generer`
    produit le `.docx` éditable (codes-barres en image, première page seulement, sans notes
    internes). **Interdit** : tout rendu PDF improvisé hors de ce gabarit.
-5. `_archiver` déplace les sources dans `Archive/` seulement après génération réussie
+5. `_archiver` déplace les sources dans `data/Archive/` seulement après génération réussie
    (jamais en `--simulation`/`--garder`, jamais pour un lot bloqué).
 
 Modules transverses : `config` (défauts < `config.json` < variables `ULIX_*`/`CW_*`),

@@ -8,7 +8,7 @@ export ULIX_PROJET="${ULIX_PROJET:-$HOME/ULIX NCTS}"
 CODE=$?
 echo
 if [ "$CODE" = 0 ]; then
-    echo "Traitement terminé. Les annonces sont dans « $ULIX_PROJET/Annonces d'arrivées »."
+    echo "Traitement terminé. Les annonces sont dans « $ULIX_PROJET/data/Annonces d'arrivées »."
 else
     echo "Le traitement s'est arrêté avec le code $CODE (voir le message ci-dessus)."
 fi

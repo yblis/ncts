@@ -1,11 +1,12 @@
 ## Sortie Word modifiable (par défaut)
 
-La surveillance produit désormais un `.docx` dans `Annonces d'arrivées`.
+La surveillance produit désormais un `.docx` dans `data/Annonces d'arrivées`.
 Les champs et tableaux se modifient directement dans Word. Les codes-barres sont limités à
-la première page ; les notes internes restent dans le rapport et le JSON du dossier `data`.
+la première page ; les notes internes restent dans le rapport et le JSON sous
+`data/Annonces d'arrivées/data/`.
 Les valeurs absentes portent la mention « à compléter ». La génération Word ne constitue
 pas une validation des données. Après une génération Word réussie, les PDF sources sont
-déplacés dans `Archive`, sauf avec `--garder` ou en simulation. En cas d’échec, ils restent
+déplacés dans `data/Archive`, sauf avec `--garder` ou en simulation. En cas d’échec, ils restent
 dans le dépôt.
 
 Après mise à jour, arrêter la surveillance avec Ctrl+C puis relancer `./Surveiller.command`.
@@ -18,6 +19,9 @@ le document si ce numéro change. Exporter le PDF final depuis Word ; les modifi
 Word ne sont pas réimportées dans les données JSON de l'application.
 
 # Annonce d'arrivée NCTS — génération automatique
+
+Pour un déploiement Linux en conteneur avec le dossier métier sur un partage
+SMB, voir le [guide de déploiement Docker](../DEPLOIEMENT-DOCKER.md).
 
 Le [processus métier d'arrivée et la recette de bascule CW](PROCESSUS-ARRIVEE.md)
 intègrent le retour utilisateur du 17 septembre 2026 : premier échange avec un
@@ -38,8 +42,8 @@ TAD UE, formulaires CargoWise) et génère le **document d'arrivée NCTS** : PDF
 cadre CONTRÔLE ULIX SWISS SA (n° 3140).
 
 ```
-Dépots unique   →  1 fichier PDF   →  1 annonce d'arrivée
-Dépots multiple →  N fichiers PDF  →  1 seule annonce d'arrivée
+data/Dépôts unique   →  1 fichier PDF   →  1 annonce d'arrivée
+data/Dépôts multiple →  N fichiers PDF  →  1 seule annonce d'arrivée
 ```
 
 ## Annonce originale et relectures
@@ -63,18 +67,18 @@ et exclues de Git. Les tests publiés utilisent des données fictives.
 1. **Première fois sur un poste** : double-cliquer **`Installer.command`**
    (crée l'environnement Python local et installe reportlab + Pillow ; installe
    aussi poppler via Homebrew si besoin).
-2. **À chaque traitement** : déposer les PDF dans `Dépots unique/` et/ou
-   `Dépots multiple/`, puis double-cliquer **`Lancer.command`**.
-3. Les annonces sont écrites dans **`Annonces d'arrivées/`** ; les PDF traités
-   sont déplacés dans **`Archive/`** (aucun doublon, pas de retraitement).
+2. **À chaque traitement** : déposer les PDF dans `data/Dépôts unique/` et/ou
+   `data/Dépôts multiple/`, puis double-cliquer **`Lancer.command`**.
+3. Les annonces sont écrites dans **`data/Annonces d'arrivées/`** ; les PDF traités
+   sont déplacés dans **`data/Archive/`** (aucun doublon, pas de retraitement).
 
 En ligne de commande (équivalent, avec options) :
 
 ```bash
 cd app_ncts
 .venv/bin/python3 lancer.py                 # traite les deux dépôts
-.venv/bin/python3 lancer.py --unique        # seulement « Dépots unique »
-.venv/bin/python3 lancer.py --multiple      # seulement « Dépots multiple »
+.venv/bin/python3 lancer.py --unique        # seulement « data/Dépôts unique »
+.venv/bin/python3 lancer.py --multiple      # seulement « data/Dépôts multiple »
 .venv/bin/python3 lancer.py --simulation    # analyse sans rien écrire
 .venv/bin/python3 lancer.py --garder        # ne pas archiver les PDF traités
 .venv/bin/python3 lancer.py --cargowise     # enrichir via le serveur MCP CargoWise
@@ -122,15 +126,15 @@ les réglages ; les variables d'environnement `ULIX_*` ont la priorité :
 
 ```json
 {
-  "dossiers": { "depot_unique": "Dépots unique", "depot_multiple": "Dépots multiple",
-                "sortie": "Annonces d'arrivées", "archive": "Archive" },
+  "dossiers": { "depot_unique": "data/Dépôts unique", "depot_multiple": "data/Dépôts multiple",
+                "sortie": "data/Annonces d'arrivées", "archive": "data/Archive" },
   "traitement": { "deplacer_traite": true, "dpi_ocr": 200 },
   "cargowise": { "active": false, "url": "http://localhost:8000/mcp", "token": "" }
 }
 ```
 
 La résolution des dossiers tolère les accents et les formes Unicode macOS :
-« Dépots unique » et « Dépôts unique » désignent le même dossier.
+« Dépots unique » et « Dépôts unique » désignent le même dossier, sous `data/`.
 
 ## Deux façons d'utiliser l'outil
 
@@ -143,7 +147,7 @@ utiliser ceux de son système. Sur Windows, voir **`INSTALLATION-WINDOWS.md`**.
 Double-cliquer **`Surveiller.command`** (macOS) ou **`Surveiller.cmd`**
 (Windows), puis laisser la fenêtre ouverte. Le programme surveille les deux
 dépôts : dès qu'un PDF y est déposé, il est traité et l'annonce apparaît dans
-« Annonces d'arrivées ». **L'utilisateur n'a rien d'autre à faire que déposer ses
+« data/Annonces d'arrivées ». **L'utilisateur n'a rien d'autre à faire que déposer ses
 fichiers.**
 
 ```bash
@@ -165,8 +169,8 @@ Double-cliquer **`Lancer.command`** (macOS) ou **`Lancer.cmd`** (Windows), ou :
 ```bash
 cd hermes/app_ncts
 .venv/bin/python3 lancer.py               # les deux dépôts
-.venv/bin/python3 lancer.py --unique      # seulement « Dépots unique »
-.venv/bin/python3 lancer.py --multiple    # seulement « Dépots multiple »
+.venv/bin/python3 lancer.py --unique      # seulement « data/Dépôts unique »
+.venv/bin/python3 lancer.py --multiple    # seulement « data/Dépôts multiple »
 .venv/bin/python3 lancer.py --simulation  # analyser sans rien écrire
 ```
 
@@ -175,7 +179,7 @@ cd hermes/app_ncts
 | **Dépôt unique** | 1 fichier PDF | 1 annonce d'arrivée |
 | **Dépôt multiple** | plusieurs PDF | **une seule** annonce regroupant tous les MRN et tous les articles |
 
-Après génération et validation réussies, les sources partent dans `hermes/Archive/`.
+Après génération et validation réussies, les sources partent dans `hermes/data/Archive/`.
 Les échecs restent dans le dépôt. Aucun mécanisme ne déduplique une nouvelle copie
 d’un fichier déjà traité ; un MRN répété dans un même lot est refusé pour éviter
 le double comptage.
@@ -184,11 +188,12 @@ le double comptage.
 
 ```
 hermes/
-├── Dépots unique/          ← vous déposez ici (1 fichier = 1 annonce)
-├── Dépots multiple/        ← vous déposez ici (N fichiers = 1 annonce)
-├── Annonces d'arrivées/    ← UNIQUEMENT les PDF à remettre au client
-│   └── data/               ← fichiers de travail : les .json et le rapport
-└── Archive/                ← les PDF de dépôt, une fois traités
+└── data/
+    ├── Dépôts unique/          ← vous déposez ici (1 fichier = 1 annonce)
+    ├── Dépôts multiple/        ← vous déposez ici (N fichiers = 1 annonce)
+    ├── Annonces d'arrivées/    ← UNIQUEMENT les PDF à remettre au client
+    │   └── data/               ← fichiers de travail : les .json et le rapport
+    └── Archive/                ← les PDF de dépôt, une fois traités
 ```
 
 Le dossier « Annonces d'arrivées » ne contient que les PDF : les fichiers
@@ -382,8 +387,8 @@ les données et appeler le gabarit du skill, jamais de rendu ad hoc.
 - Python 3.11 ou plus récent (installé pour vous par `Installer.command`).
 - `poppler` (`brew install poppler`) pour la lecture
   des scans.
-- Accès en lecture/écriture aux dossiers `Dépots unique`, `Dépots multiple`,
-  `Annonces d'arrivées` et `Archive`.
+- Accès en lecture/écriture aux dossiers correspondants sous `data/` : `Dépôts unique`,
+  `Dépôts multiple`, `Annonces d'arrivées` et `Archive`.
 
 ---
 V1.0 — ULIX SWISS SA — génération locale, aucune donnée n'est saisie ni modifiée
@@ -394,7 +399,7 @@ dans CargoWise (lecture seule).
 
 - L’archivage dépend d’un rendu réussi et de contrôles automatiques (texte attendu,
   DM ou mention « à vérifier », dernière page avec cadre contrôle, limites de page).
-  Un rendu rejeté est isolé sous `Annonces d’arrivées/A_verifier/`.
+  Un rendu rejeté est isolé sous `data/Annonces d’arrivées/A_verifier/`.
 - Un dépôt multiple est indivisible : chaque PDF doit fournir un transit reconnu.
   Les annexes seules dans un fichier distinct ne sont pas automatiquement rattachées ;
   les joindre au PDF du transit concerné. Un fichier incomplet ou temporaire présent
@@ -441,7 +446,7 @@ un passage sur macOS ne valide pas une installation Windows réelle.
 Une génération PDF réussie n’est plus une autorisation de livraison.
 
 ```
-Annonces d'arrivées/
+data/Annonces d'arrivées/
 ├── Prets_a_remettre/  # seulement les dossiers ayant passé les contrôles
 ├── A_verifier/        # PDF préparés, fiches HTML internes et formulaires JSON
 └── data/             # rapports et traces de traitement/validation
